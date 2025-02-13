@@ -1,7 +1,7 @@
 // lib/o2_saturation/services/o2_saturation_data_processor.dart
 import 'dart:math';
 
-import '../../blood_pressure/models/date_range_type.dart';
+import '../../models/date_range_type.dart';
 import '../models/o2_saturation_data.dart';
 import '../models/processed_o2_saturation_data.dart';
 

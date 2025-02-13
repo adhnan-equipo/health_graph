@@ -1,5 +1,5 @@
 // lib/services/heart_rate_data_processor.dart
-import '../../blood_pressure/models/date_range_type.dart';
+import '../../models/date_range_type.dart';
 import '../models/heart_rate_data.dart';
 import '../models/processed_heart_rate_data.dart';
 

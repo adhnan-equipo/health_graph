@@ -9,9 +9,9 @@ class BloodPressureChartStyle {
   final Color diastolicColor;
   final Color connectorColor;
   final double pointRadius;
-  final double singlePointRadius; // New property for single point readings
+  final double singlePointRadius;
   final double lineThickness;
-  final double singleLineThickness; // New property for single value connections
+  final double singleLineThickness;
   final TextStyle? gridLabelStyle;
   final TextStyle? dateLabelStyle;
   final TextStyle? headerStyle;

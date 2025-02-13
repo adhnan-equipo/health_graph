@@ -1,7 +1,7 @@
-import '../utils/date_formatter.dart';
+import '../../models/date_range_type.dart';
+import '../../utils/date_formatter.dart';
 import 'blood_pressure_category.dart';
 import 'blood_pressure_data.dart';
-import 'date_range_type.dart';
 
 // Updated ProcessedBloodPressureData model
 class ProcessedBloodPressureData {

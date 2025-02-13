@@ -43,27 +43,20 @@ class BloodPressureChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
 
-    // Draw background and grid
     _backgroundDrawer.drawBackground(canvas, chartArea);
     if (config.showGrid) {
       _gridDrawer.drawGrid(canvas, chartArea, yAxisValues, minValue, maxValue);
     }
 
-    // Draw labels
     _labelDrawer.drawSideLabels(
       canvas,
       chartArea,
       yAxisValues,
-      TextStyle(color: Colors.black, fontSize: 9),
+      style.defaultDateLabelStyle,
     );
     _labelDrawer.drawBottomLabels(
-      canvas,
-      chartArea,
-      data,
-      config.viewType,
-    );
+        canvas, chartArea, data, config.viewType, style);
 
-    // Draw reference ranges
     _rangeDrawer.drawReferenceRanges(
       canvas,
       chartArea,
@@ -72,7 +65,6 @@ class BloodPressureChartPainter extends CustomPainter {
       maxValue,
     );
 
-    // Draw data points and ranges
     _dataPointDrawer.drawDataPoints(
       canvas,
       chartArea,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/processed_blood_pressure_data.dart';
+import '../blood_pressure/models/processed_blood_pressure_data.dart';
 
 class HitTester {
   ProcessedBloodPressureData? hitTestValue(

@@ -3,10 +3,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../utils/date_formatter.dart';
 import '../models/heart_rate_chart_config.dart';
 import '../models/processed_heart_rate_data.dart';
 import '../styles/heart_rate_chart_style.dart';
-import '../utils/heart_rate_date_formatter.dart';
 
 class HeartRateChartPainter extends CustomPainter {
   final List<ProcessedHeartRateData> data;
@@ -342,7 +342,7 @@ class HeartRateChartPainter extends CustomPainter {
       if (i >= data.length) continue;
 
       final x = chartArea.left + (i * chartArea.width / (data.length - 1));
-      final label = HeartRateDateFormatter.format(
+      final label = DateFormatter.format(
         data[i].startDate,
         config.viewType,
       );

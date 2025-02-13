@@ -1,20 +1,21 @@
+// lib/bmi/controllers/bmi_chart_controller.dart
 import 'package:flutter/material.dart';
 
+import '../../blood_pressure/models/chart_view_config.dart';
 import '../../models/date_range_type.dart';
-import '../models/blood_pressure_data.dart';
-import '../models/chart_view_config.dart';
-import '../models/processed_blood_pressure_data.dart';
-import '../utils/data_processor.dart';
+import '../models/bmi_data.dart';
+import '../models/processed_bmi_data.dart';
+import '../services/bmi_data_processor.dart';
 
-class ChartController extends ChangeNotifier {
-  List<BloodPressureData> _data;
+class BMIChartController extends ChangeNotifier {
+  List<BMIData> _data;
   ChartViewConfig _config;
-  ProcessedBloodPressureData? _selectedData;
-  List<ProcessedBloodPressureData> _processedData = [];
+  ProcessedBMIData? _selectedData;
+  List<ProcessedBMIData> _processedData = [];
   double _baseScaleFactor = 1.0;
 
-  ChartController({
-    required List<BloodPressureData> data,
+  BMIChartController({
+    required List<BMIData> data,
     required ChartViewConfig config,
   })  : _data = data,
         _config = config {
@@ -23,8 +24,8 @@ class ChartController extends ChangeNotifier {
 
   // Getters
   ChartViewConfig get config => _config;
-  List<ProcessedBloodPressureData> get processedData => _processedData;
-  ProcessedBloodPressureData? get selectedData => _selectedData;
+  List<ProcessedBMIData> get processedData => _processedData;
+  ProcessedBMIData? get selectedData => _selectedData;
 
   void _processData() {
     if (_data.isEmpty) {
@@ -34,7 +35,7 @@ class ChartController extends ChangeNotifier {
     }
 
     // Sort data by date
-    final sortedData = List<BloodPressureData>.from(_data)
+    final sortedData = List<BMIData>.from(_data)
       ..sort((a, b) => a.date.compareTo(b.date));
 
     // Calculate date range based on view type
@@ -67,12 +68,11 @@ class ChartController extends ChangeNotifier {
         break;
     }
 
-    _processedData = BloodPressureDataProcessor.processData(
+    _processedData = BMIDataProcessor.processData(
       sortedData,
       _config.viewType,
       startDate,
       endDate,
-      zoomLevel: _config.zoomLevel,
     );
 
     notifyListeners();
@@ -84,13 +84,13 @@ class ChartController extends ChangeNotifier {
     _processData();
   }
 
-  void updateData(List<BloodPressureData> newData) {
+  void updateData(List<BMIData> newData) {
     if (_listEquals(_data, newData)) return;
     _data = newData;
     _processData();
   }
 
-  void selectData(ProcessedBloodPressureData? data) {
+  void selectData(ProcessedBMIData? data) {
     if (_selectedData == data) return;
     _selectedData = data;
     notifyListeners();

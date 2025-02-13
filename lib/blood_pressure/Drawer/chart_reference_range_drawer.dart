@@ -13,7 +13,6 @@ class ChartReferenceRangeDrawer {
       BloodPressureChartStyle style, double minValue, double maxValue) {
     final rangePaint = Paint()..style = PaintingStyle.fill;
 
-    // Draw systolic normal range
     final systolicRangeRect = Rect.fromLTRB(
       chartArea.left,
       getYPosition(BloodPressureRange.normalSystolicMax.toDouble(), chartArea,
@@ -43,22 +42,14 @@ class ChartReferenceRangeDrawer {
       canvas: canvas,
       rect: systolicRangeRect,
       text: 'Normal Systolic Range',
-      style: TextStyle(
-        color: style.confidenceIntervalColor.withOpacity(0.7),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-      ),
+      style: style.defaultGridLabelStyle,
     );
 
     _drawRangeLabel(
       canvas: canvas,
       rect: diastolicRangeRect,
       text: 'Normal Diastolic Range',
-      style: TextStyle(
-        color: style.confidenceIntervalColor.withOpacity(0.7),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-      ),
+      style: style.defaultGridLabelStyle,
     );
   }
 
@@ -72,7 +63,6 @@ class ChartReferenceRangeDrawer {
       ..text = TextSpan(text: text, style: style)
       ..layout(maxWidth: rect.width - 20); // Account for padding
 
-    // Draw semi-transparent white background for better readability
     final backgroundPaint = Paint()
       ..color = Colors.white.withOpacity(0.8)
       ..style = PaintingStyle.fill;
@@ -86,7 +76,6 @@ class ChartReferenceRangeDrawer {
 
     canvas.drawRect(textBgRect, backgroundPaint);
 
-    // Draw text horizontally in the center of the range
     _textPainter.paint(
       canvas,
       Offset(

@@ -1,7 +1,7 @@
 import 'dart:math';
 
+import '../../models/date_range_type.dart';
 import '../models/blood_pressure_data.dart';
-import '../models/date_range_type.dart';
 import '../models/processed_blood_pressure_data.dart';
 
 class BloodPressureDataProcessor {
@@ -19,7 +19,6 @@ class BloodPressureDataProcessor {
       return _generateEmptyDataPoints(dateRangeType, startDate, endDate);
     }
 
-    // Group data by date based on view type
     final groupedData = _groupDataByDate(data, dateRangeType);
     List<ProcessedBloodPressureData> processedData = [];
 
@@ -38,7 +37,6 @@ class BloodPressureDataProcessor {
       currentDate = _getNextDate(currentDate, dateRangeType);
     }
 
-    // Handle zoom level aggregation if needed
     final effectiveMaxPoints = (maxDataPoints * zoomLevel).round();
     if (processedData.length > effectiveMaxPoints) {
       return _aggregateProcessedData(processedData, effectiveMaxPoints);

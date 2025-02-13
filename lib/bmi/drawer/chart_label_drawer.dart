@@ -1,9 +1,9 @@
+// lib/bmi/drawer/chart_label_drawer.dart
 import 'package:flutter/material.dart';
 
-import '/blood_pressure/styles/blood_pressure_chart_style.dart';
 import '../../models/date_range_type.dart';
 import '../../utils/date_formatter.dart';
-import '../models/processed_blood_pressure_data.dart';
+import '../models/processed_bmi_data.dart';
 
 class ChartLabelDrawer {
   final TextPainter _textPainter = TextPainter(
@@ -11,7 +11,7 @@ class ChartLabelDrawer {
     textAlign: TextAlign.center,
   );
 
-  void drawSideLabels(Canvas canvas, Rect chartArea, List<int> yAxisValues,
+  void drawSideLabels(Canvas canvas, Rect chartArea, List<double> yAxisValues,
       TextStyle textStyle) {
     for (var value in yAxisValues) {
       final y = chartArea.bottom -
@@ -19,7 +19,9 @@ class ChartLabelDrawer {
                   (yAxisValues.last - yAxisValues.first)) *
               chartArea.height;
 
-      _textPainter.text = TextSpan(text: value.toString(), style: textStyle);
+      _textPainter.text = TextSpan(
+          text: value.toStringAsFixed(1), // Format BMI values with 1 decimal
+          style: textStyle);
       _textPainter.layout();
 
       // Draw background
@@ -45,9 +47,8 @@ class ChartLabelDrawer {
   void drawBottomLabels(
     Canvas canvas,
     Rect chartArea,
-    List<ProcessedBloodPressureData> data,
+    List<ProcessedBMIData> data,
     DateRangeType viewType,
-    BloodPressureChartStyle style,
   ) {
     if (data.isEmpty) return;
 
@@ -63,7 +64,11 @@ class ChartLabelDrawer {
 
       _textPainter.text = TextSpan(
         text: label,
-        style: style.defaultDateLabelStyle,
+        style: const TextStyle(
+          fontSize: 10,
+          color: Colors.black,
+          fontWeight: FontWeight.normal,
+        ),
       );
       _textPainter.layout();
 
@@ -107,6 +112,36 @@ class ChartLabelDrawer {
       case DateRangeType.year:
         // Show all month labels
         return 1;
+    }
+  }
+
+  void drawBMIRangeLabels(Canvas canvas, Rect chartArea) {
+    // Draw BMI range category labels on the right side
+    final rangeLabels = [
+      ('Underweight', 18.5),
+      ('Normal', 24.9),
+      ('Overweight', 29.9),
+      ('Obese', 35.0),
+    ];
+
+    for (var label in rangeLabels) {
+      _textPainter.text = TextSpan(
+        text: label.$1,
+        style: const TextStyle(
+          fontSize: 9,
+          color: Colors.black54,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+      _textPainter.layout();
+
+      final y =
+          chartArea.bottom - ((label.$2 - 15) / (40 - 15)) * chartArea.height;
+
+      _textPainter.paint(
+        canvas,
+        Offset(chartArea.right + 8, y - _textPainter.height / 2),
+      );
     }
   }
 }

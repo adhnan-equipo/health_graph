@@ -1,26 +1,26 @@
-// lib/blood_pressure/widgets/chart/blood_pressure_chart_content.dart
+// lib/bmi/widgets/bmi_chart_content.dart
 import 'package:flutter/material.dart';
 
-import '../../Drawer/blood_pressure_chart_painter.dart';
-import '../../services/chart_calculations.dart';
-import '../../models/chart_view_config.dart';
-import '../../models/processed_blood_pressure_data.dart';
-import '../../styles/blood_pressure_chart_style.dart';
-import 'chart_tooltip.dart';
+import '../../blood_pressure/models/chart_view_config.dart';
+import '../drawer/bmi_chart_painter.dart';
+import '../models/processed_bmi_data.dart';
+import '../services/bmi_chart_calculations.dart';
+import '../styles/bmi_chart_style.dart';
+import 'bmi_tooltip.dart';
 
-class BloodPressureChartContent extends StatefulWidget {
-  final List<ProcessedBloodPressureData> data;
-  final BloodPressureChartStyle style;
+class BMIChartContent extends StatefulWidget {
+  final List<ProcessedBMIData> data;
+  final BMIChartStyle style;
   final ChartViewConfig initialConfig;
   final double height;
   final Animation<double> animation;
-  final ProcessedBloodPressureData? selectedData;
-  final Function(ProcessedBloodPressureData?)? onDataSelected;
-  final Function(ProcessedBloodPressureData)? onDataPointTap;
-  final Function(ProcessedBloodPressureData)? onTooltipTap;
-  final Function(ProcessedBloodPressureData)? onLongPress;
+  final ProcessedBMIData? selectedData;
+  final Function(ProcessedBMIData?)? onDataSelected;
+  final Function(ProcessedBMIData)? onDataPointTap;
+  final Function(ProcessedBMIData)? onTooltipTap;
+  final Function(ProcessedBMIData)? onLongPress;
 
-  const BloodPressureChartContent({
+  const BMIChartContent({
     Key? key,
     required this.data,
     required this.style,
@@ -35,22 +35,20 @@ class BloodPressureChartContent extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BloodPressureChartContent> createState() =>
-      _BloodPressureChartContentState();
+  State<BMIChartContent> createState() => _BMIChartContentState();
 }
 
-class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
+class _BMIChartContentState extends State<BMIChartContent> {
   final GlobalKey _chartKey = GlobalKey();
   Size? _chartSize;
   Rect? _chartArea;
-  List<int>? _yAxisValues;
+  List<double>? _yAxisValues;
   double? _minValue;
   double? _maxValue;
   Offset? _lastTapPosition;
   OverlayEntry? _tooltipOverlay;
 
-// In BloodPressureChartContent class, update the _showTooltip method:
-  void _showTooltip(ProcessedBloodPressureData data, Offset position) {
+  void _showTooltip(ProcessedBMIData data, Offset position) {
     try {
       _hideTooltip();
 
@@ -60,18 +58,9 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
       final globalPosition = renderBox.localToGlobal(position);
       final screenSize = MediaQuery.of(context).size;
 
-      // Get all measurements in the range
-      final rangeData = widget.data.where((measurement) {
-        return measurement.startDate
-                .isAfter(data.startDate.subtract(const Duration(minutes: 1))) &&
-            measurement.startDate
-                .isBefore(data.endDate.add(const Duration(minutes: 1)));
-      }).toList();
-
       _tooltipOverlay = OverlayEntry(
-        builder: (context) => ChartTooltip(
+        builder: (context) => BMITooltip(
           data: data,
-          rangeData: rangeData,
           viewType: widget.initialConfig.viewType,
           position: globalPosition,
           onClose: _hideTooltip,
@@ -96,7 +85,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     if (_chartArea == null) return;
 
     try {
-      final selectedData = ChartCalculations.findDataPoint(
+      final selectedData = BMIChartCalculations.findDataPoint(
         position,
         _chartArea!,
         widget.data,
@@ -122,7 +111,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     if (_chartArea == null) return;
 
     try {
-      final selectedData = ChartCalculations.findDataPoint(
+      final selectedData = BMIChartCalculations.findDataPoint(
         position,
         _chartArea!,
         widget.data,
@@ -153,19 +142,19 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
         setState(() {
           _chartSize = size;
           _chartArea = _calculateChartArea(size);
-          _yAxisValues = ChartCalculations.calculateYAxisValues(widget.data);
-          _minValue = _yAxisValues?.first.toDouble();
-          _maxValue = _yAxisValues?.last.toDouble();
+          _yAxisValues = BMIChartCalculations.calculateYAxisValues(widget.data);
+          _minValue = _yAxisValues?.first;
+          _maxValue = _yAxisValues?.last;
         });
       }
     }
   }
 
   Rect _calculateChartArea(Size size) {
-    const leftPadding = 25.0;
-    const rightPadding = 20.0;
-    const topPadding = 20.0;
-    const bottomPadding = 30.0;
+    const leftPadding = 30.0;
+    const rightPadding = 10.0;
+    const topPadding = 0.0;
+    const bottomPadding = 0.0;
     return Rect.fromLTRB(
       leftPadding,
       topPadding,
@@ -174,6 +163,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     );
   }
 
+// In BMIChartContent widget
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -194,10 +184,14 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
         }
       },
       child: RepaintBoundary(
-        child: SizedBox(
+        child: Container(
           key: _chartKey,
           width: MediaQuery.of(context).size.width,
           height: widget.height,
+          constraints: BoxConstraints(
+            minHeight: widget.height,
+            maxHeight: widget.height,
+          ),
           child: _buildChart(),
         ),
       ),
@@ -220,7 +214,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     }
 
     return CustomPaint(
-      painter: BloodPressureChartPainter(
+      painter: BMIChartPainter(
         data: widget.data,
         style: widget.style,
         config: widget.initialConfig,

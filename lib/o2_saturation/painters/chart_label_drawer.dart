@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../blood_pressure/models/date_range_type.dart';
-import '../../blood_pressure/utils/date_formatter.dart';
+import '../../models/date_range_type.dart';
+import '../../utils/date_formatter.dart';
 import '../models/processed_o2_saturation_data.dart';
 
 class ChartLabelDrawer {

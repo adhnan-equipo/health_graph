@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../models/date_range_type.dart';
+import '../../../models/date_range_type.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../styles/blood_pressure_chart_style.dart';
 
@@ -149,7 +149,7 @@ class ChartTooltip extends StatelessWidget {
         Text(
           'Summary',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
+                color: Theme.of(context).cardColor,
               ),
         ),
         const SizedBox(height: 12),
@@ -331,7 +331,6 @@ class ChartTooltip extends StatelessWidget {
             maxHeight: screenSize.height * 0.6,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(

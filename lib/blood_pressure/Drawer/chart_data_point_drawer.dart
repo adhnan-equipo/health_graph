@@ -22,7 +22,6 @@ class ChartDataPointDrawer {
 
     final xStep = chartArea.width / (data.length - 1);
 
-    // Draw trend lines first
     _drawTrendLines(
       canvas,
       chartArea,
@@ -34,7 +33,6 @@ class ChartDataPointDrawer {
       maxValue,
     );
 
-    // Draw individual data points and ranges
     for (var i = 0; i < data.length; i++) {
       final entry = data[i];
       if (entry.isEmpty) continue;
@@ -54,7 +52,6 @@ class ChartDataPointDrawer {
         _drawSelectionHighlight(canvas, x, chartArea, style);
       }
 
-      // Draw range/connector lines
       if (entry.dataPointCount > 1) {
         _drawRangeLines(
           canvas,
@@ -73,7 +70,6 @@ class ChartDataPointDrawer {
         );
       }
 
-      // Draw data points
       _drawPoints(
         canvas,
         positions,
@@ -83,7 +79,6 @@ class ChartDataPointDrawer {
         entry.dataPointCount > 1,
       );
 
-      // Draw reading count badge if multiple readings
       if (entry.dataPointCount > 1) {
         _drawReadingCount(
           canvas,
@@ -209,7 +204,6 @@ class ChartDataPointDrawer {
     Animation<double> animation,
     bool isSelected,
   ) {
-    // Draw systolic range
     _dataPointPaint
       ..color = style.systolicColor.withOpacity(animation.value * 0.5)
       ..strokeWidth = style.lineThickness;
@@ -219,7 +213,6 @@ class ChartDataPointDrawer {
       _dataPointPaint,
     );
 
-    // Draw diastolic range
     _dataPointPaint.color =
         style.diastolicColor.withOpacity(animation.value * 0.5);
     canvas.drawLine(
@@ -228,7 +221,6 @@ class ChartDataPointDrawer {
       _dataPointPaint,
     );
 
-    // Draw connector
     _dataPointPaint
       ..color = (isSelected
           ? style.connectorColor.withOpacity(animation.value * 0.8)
@@ -305,11 +297,7 @@ class ChartDataPointDrawer {
     final textPainter = TextPainter(
       text: TextSpan(
         text: count.toString(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
+        style: style.dateLabelStyle,
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -320,13 +308,11 @@ class ChartDataPointDrawer {
       position.dy - style.pointRadius * 2,
     );
 
-    // Draw badge background
     _dataPointPaint
       ..style = PaintingStyle.fill
       ..color = style.systolicColor.withOpacity(animation.value);
     canvas.drawCircle(badgeCenter, badgeRadius, _dataPointPaint);
 
-    // Draw count text
     textPainter.paint(
       canvas,
       Offset(
@@ -336,12 +322,7 @@ class ChartDataPointDrawer {
     );
   }
 
-  ({
-    Offset maxSystolicPoint,
-    Offset minSystolicPoint,
-    Offset maxDiastolicPoint,
-    Offset minDiastolicPoint
-  }) _calculateDataPointPositions(
+  _calculateDataPointPositions(
     ProcessedBloodPressureData entry,
     double x,
     Rect chartArea,

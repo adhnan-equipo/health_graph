@@ -1,29 +1,29 @@
-// lib/blood_pressure/widgets/chart/blood_pressure_graph.dart
+// lib/bmi/widgets/bmi_graph.dart
 import 'package:flutter/material.dart';
 
-import '../../../models/date_range_type.dart';
-import '../../controllers/chart_controller.dart';
-import '../../models/blood_pressure_data.dart';
-import '../../models/chart_view_config.dart';
-import '../../models/processed_blood_pressure_data.dart';
-import '../../styles/blood_pressure_chart_style.dart';
-import 'blood_pressure_chart_content.dart';
+import '../../blood_pressure/models/chart_view_config.dart';
+import '../../models/date_range_type.dart';
+import '../controllers/bmi_chart_controller.dart';
+import '../models/bmi_data.dart';
+import '../models/processed_bmi_data.dart';
+import '../styles/bmi_chart_style.dart';
+import 'bmi_chart_content.dart';
 
-class BloodPressureGraph extends StatefulWidget {
-  final List<BloodPressureData> data;
-  final BloodPressureChartStyle style;
+class BMIGraph extends StatefulWidget {
+  final List<BMIData> data;
+  final BMIChartStyle style;
   final ChartViewConfig initialConfig;
   final double height;
-  final Function(ProcessedBloodPressureData?)? onDataSelected;
+  final Function(ProcessedBMIData?)? onDataSelected;
   final Function(DateRangeType)? onViewTypeChanged;
-  final Function(ProcessedBloodPressureData)? onDataPointTap;
-  final Function(ProcessedBloodPressureData)? onTooltipTap;
-  final Function(ProcessedBloodPressureData)? onLongPress;
+  final Function(ProcessedBMIData)? onDataPointTap;
+  final Function(ProcessedBMIData)? onTooltipTap;
+  final Function(ProcessedBMIData)? onLongPress;
 
-  const BloodPressureGraph({
+  const BMIGraph({
     Key? key,
     required this.data,
-    this.style = const BloodPressureChartStyle(),
+    this.style = const BMIChartStyle(),
     required this.initialConfig,
     this.height = 300,
     this.onDataSelected,
@@ -34,12 +34,12 @@ class BloodPressureGraph extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BloodPressureGraph> createState() => _BloodPressureGraphState();
+  State<BMIGraph> createState() => _BMIGraphState();
 }
 
-class _BloodPressureGraphState extends State<BloodPressureGraph>
+class _BMIGraphState extends State<BMIGraph>
     with SingleTickerProviderStateMixin {
-  late final ChartController _controller;
+  late final BMIChartController _controller;
   late final AnimationController _animationController;
   late final Animation<double> _animation;
 
@@ -52,7 +52,7 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
   }
 
   void _initializeControllers() {
-    _controller = ChartController(
+    _controller = BMIChartController(
       data: widget.data,
       config: widget.initialConfig,
     );
@@ -78,7 +78,7 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
   }
 
   @override
-  void didUpdateWidget(BloodPressureGraph oldWidget) {
+  void didUpdateWidget(BMIGraph oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     if (!_listEquals(widget.data, oldWidget.data)) {
@@ -100,34 +100,35 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
     return true;
   }
 
+// In BMIGraph widget
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: SizedBox(
-        height: widget.height,
+      child: Container(
+        height: widget.height, // Use the specified height
+        constraints: BoxConstraints(
+          minHeight: widget.height,
+          maxHeight: widget.height,
+        ),
         child: LayoutBuilder(
-          builder: (context, constraints) => _buildChart(constraints),
+          builder: (context, constraints) => BMIChartContent(
+            data: _controller.processedData,
+            style: widget.style,
+            initialConfig: _controller.config,
+            height: widget.height,
+            animation: _animation,
+            selectedData: _controller.selectedData,
+            onDataSelected: _handleDataSelected,
+            onDataPointTap: widget.onDataPointTap,
+            onTooltipTap: widget.onTooltipTap,
+            onLongPress: widget.onLongPress,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildChart(BoxConstraints constraints) {
-    return BloodPressureChartContent(
-      data: _controller.processedData,
-      style: widget.style,
-      initialConfig: _controller.config,
-      height: widget.height,
-      animation: _animation,
-      selectedData: _controller.selectedData,
-      onDataSelected: _handleDataSelected,
-      onDataPointTap: widget.onDataPointTap,
-      onTooltipTap: widget.onTooltipTap,
-      onLongPress: widget.onLongPress,
-    );
-  }
-
-  void _handleDataSelected(ProcessedBloodPressureData? data) {
+  void _handleDataSelected(ProcessedBMIData? data) {
     if (!_isDisposed) {
       _controller.selectData(data);
       widget.onDataSelected?.call(data);

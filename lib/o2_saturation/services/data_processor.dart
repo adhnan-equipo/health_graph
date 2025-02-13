@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import '../../blood_pressure/models/date_range_type.dart';
+import '../../models/date_range_type.dart';
 import '../models/o2_saturation_data.dart';
 import '../models/processed_o2_saturation_data.dart';
 
@@ -9,12 +9,12 @@ class O2SaturationDataProcessor {
   static const int minDataPointsBeforeAggregation = 8;
 
   static List<ProcessedO2SaturationData> processData(
-    List<O2SaturationData> data,
-    DateRangeType dateRangeType,
-    DateTime startDate,
-    DateTime endDate, {
-    double zoomLevel = 1.0,
-  }) {
+      List<O2SaturationData> data,
+      DateRangeType dateRangeType,
+      DateTime startDate,
+      DateTime endDate, {
+        double zoomLevel = 1.0,
+      }) {
     if (data.isEmpty) {
       return _generateEmptyDataPoints(dateRangeType, startDate, endDate);
     }
@@ -46,9 +46,9 @@ class O2SaturationDataProcessor {
   }
 
   static Map<String, List<O2SaturationData>> _groupDataByDate(
-    List<O2SaturationData> data,
-    DateRangeType dateRangeType,
-  ) {
+      List<O2SaturationData> data,
+      DateRangeType dateRangeType,
+      ) {
     final groupedData = <String, List<O2SaturationData>>{};
 
     for (var item in data) {
@@ -84,15 +84,15 @@ class O2SaturationDataProcessor {
   }
 
   static ProcessedO2SaturationData _processDataGroup(
-    List<O2SaturationData> measurements,
-    DateTime date,
-  ) {
+      List<O2SaturationData> measurements,
+      DateTime date,
+      ) {
     if (measurements.isEmpty) {
       return ProcessedO2SaturationData.empty(date);
     }
 
     final values =
-        measurements.map((m) => m.o2Value ?? 0).where((v) => v > 0).toList();
+    measurements.map((m) => m.o2Value ?? 0).where((v) => v > 0).toList();
 
     final pulseRates = measurements
         .map((m) => m.pulseRate)
@@ -126,10 +126,10 @@ class O2SaturationDataProcessor {
   }
 
   static List<ProcessedO2SaturationData> _generateEmptyDataPoints(
-    DateRangeType dateRangeType,
-    DateTime startDate,
-    DateTime endDate,
-  ) {
+      DateRangeType dateRangeType,
+      DateTime startDate,
+      DateTime endDate,
+      ) {
     List<ProcessedO2SaturationData> emptyPoints = [];
     var currentDate = startDate;
 
@@ -143,9 +143,9 @@ class O2SaturationDataProcessor {
   }
 
   static List<ProcessedO2SaturationData> _aggregateProcessedData(
-    List<ProcessedO2SaturationData> data,
-    int targetCount,
-  ) {
+      List<ProcessedO2SaturationData> data,
+      int targetCount,
+      ) {
     final chunkSize = (data.length / targetCount).ceil();
     final result = <ProcessedO2SaturationData>[];
 
@@ -168,38 +168,61 @@ class O2SaturationDataProcessor {
   }
 
   static ProcessedO2SaturationData _aggregateChunk(
-    List<ProcessedO2SaturationData> chunk,
-  ) {
-    final allMeasurements = chunk.expand((d) => d.originalMeasurements).toList()
+      List<ProcessedO2SaturationData> chunk,
+      ) {
+    // Filter out empty data points first
+    final validData = chunk.where((d) => !d.isEmpty).toList();
+    if (validData.isEmpty) {
+      return ProcessedO2SaturationData.empty(chunk.first.startDate);
+    }
+
+    final allMeasurements = validData
+        .expand((d) => d.originalMeasurements)
+        .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    final values = chunk.expand((d) => [d.minValue, d.maxValue]).toList();
-    final pulseRates = chunk
-        .where((d) => d.avgPulseRate != null)
-        .map((d) => (d.avgPulseRate!, d.dataPointCount))
-        .toList();
+    // Safely calculate statistics
+    double minValue = validData.map((d) => d.minValue.toDouble()).reduce(min);
+    double maxValue = validData.map((d) => d.maxValue.toDouble()).reduce(max);
+    int totalCount = validData.fold(0, (sum, d) => sum + d.dataPointCount);
+
+    // Calculate weighted average for O2 values
+    double avgValue = _weightedAverage(
+        validData.map((d) => (d.avgValue, d.dataPointCount)).toList());
+
+    // Process pulse rate data if available
+    double? avgPulseRate;
+    int? minPulseRate;
+    int? maxPulseRate;
+
+    final validPulseData =
+    validData.where((d) => d.avgPulseRate != null).toList();
+    if (validPulseData.isNotEmpty) {
+      avgPulseRate = _weightedAverage(validPulseData
+          .map((d) => (d.avgPulseRate!, d.dataPointCount))
+          .toList());
+
+      minPulseRate = validPulseData.map((d) => d.minPulseRate!).reduce(min);
+      maxPulseRate = validPulseData.map((d) => d.maxPulseRate!).reduce(max);
+    }
+
+    // Calculate standard deviation
+    double stdDev = _combinedStdDev(validData
+        .map((d) => (d.stdDev, d.avgValue, d.dataPointCount))
+        .toList());
 
     return ProcessedO2SaturationData(
       startDate: chunk.first.startDate,
       endDate: chunk.last.endDate,
-      minValue: values.reduce(min),
-      maxValue: values.reduce(max),
-      dataPointCount: chunk.fold(0, (sum, d) => sum + d.dataPointCount),
-      avgValue: _weightedAverage(
-          chunk.map((d) => (d.avgValue, d.dataPointCount)).toList()),
-      stdDev: _combinedStdDev(
-          chunk.map((d) => (d.stdDev, d.avgValue, d.dataPointCount)).toList()),
-      // isRangeData: true,
+      minValue: minValue.toInt(),
+      maxValue: maxValue.toInt(),
+      dataPointCount: totalCount,
+      avgValue: avgValue,
+      stdDev: stdDev,
       originalMeasurements: allMeasurements,
-      avgPulseRate: pulseRates.isNotEmpty ? _weightedAverage(pulseRates) : null,
-      minPulseRate: chunk
-          .where((d) => d.minPulseRate != null)
-          .map((d) => d.minPulseRate!)
-          .reduce(min),
-      maxPulseRate: chunk
-          .where((d) => d.maxPulseRate != null)
-          .map((d) => d.maxPulseRate!)
-          .reduce(max),
+      avgPulseRate: avgPulseRate,
+      minPulseRate: minPulseRate,
+      maxPulseRate: maxPulseRate,
     );
   }
 
@@ -212,8 +235,8 @@ class O2SaturationDataProcessor {
   }
 
   static double _combinedStdDev(
-    List<(double stdDev, double mean, int count)> values,
-  ) {
+      List<(double stdDev, double mean, int count)> values,
+      ) {
     if (values.isEmpty) return 0;
     final totalCount = values.fold(0, (sum, item) => sum + item.$3);
     if (totalCount <= 1) return values.first.$1;
@@ -222,10 +245,10 @@ class O2SaturationDataProcessor {
         values.fold(0.0, (sum, item) => sum + item.$2 * item.$3) / totalCount;
 
     final combinedVariance = values.fold(0.0, (sum, item) {
-          final variance = item.$1 * item.$1;
-          final meanDiffSquared = pow(item.$2 - combinedMean, 2);
-          return sum + (variance + meanDiffSquared) * item.$3;
-        }) /
+      final variance = item.$1 * item.$1;
+      final meanDiffSquared = pow(item.$2 - combinedMean, 2);
+      return sum + (variance + meanDiffSquared) * item.$3;
+    }) /
         totalCount;
 
     return sqrt(combinedVariance);

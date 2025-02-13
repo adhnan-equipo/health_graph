@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../blood_pressure/models/date_range_type.dart';
+import '../../models/date_range_type.dart';
 import '../models/processed_o2_saturation_data.dart';
 import '../styles/o2_saturation_chart_style.dart';
 

@@ -1,11 +1,11 @@
 // heart_rate_chart.dart
+import 'package:flutter/material.dart';
+
 import '/heart_rate/painters/heart_rate_chart_painter.dart';
 import '/heart_rate/styles/heart_rate_chart_style.dart';
 import '/heart_rate/utils/heart_rate_calculations.dart';
 import '/heart_rate/widgets/heart_rate_tooltip.dart';
-import 'package:flutter/material.dart';
-
-import '../blood_pressure/models/date_range_type.dart';
+import '../models/date_range_type.dart';
 import 'controllers/heart_rate_chart_controller.dart';
 import 'models/heart_rate_chart_config.dart';
 import 'models/heart_rate_data.dart';
