@@ -126,7 +126,7 @@ class O2ReferenceRangeDrawer {
           maxValue),
     );
 
-    rangePaint.color = style.normalRangeColor.withOpacity(0.1);
+    rangePaint.color = style.normalRangeColor.withValues(alpha: 0.1);
     canvas.drawRect(normalRangeRect, rangePaint);
 
     // Draw labels
@@ -135,7 +135,7 @@ class O2ReferenceRangeDrawer {
       rect: normalRangeRect,
       text: 'Normal Range',
       style: TextStyle(
-        color: style.normalRangeColor.withOpacity(0.7),
+        color: style.normalRangeColor.withValues(alpha: 0.7),
         fontSize: 10,
         fontWeight: FontWeight.w500,
       ),
@@ -153,7 +153,7 @@ class O2ReferenceRangeDrawer {
       ..layout(maxWidth: rect.width - 20);
 
     final backgroundPaint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
+      ..color = Colors.white.withValues(alpha: 0.8)
       ..style = PaintingStyle.fill;
 
     final textBgRect = Rect.fromLTWH(
@@ -331,11 +331,13 @@ class O2DataPointDrawer {
       ..strokeWidth = style.lineThickness;
 
     // Draw O2 trend line
-    trendPaint.color = style.primaryColor.withOpacity(0.3 * animation.value);
+    trendPaint.color =
+        style.primaryColor.withValues(alpha: 0.3 * animation.value);
     canvas.drawPath(o2Path, trendPaint);
 
     // Draw pulse rate trend line
-    trendPaint.color = style.pulseRateColor.withOpacity(0.3 * animation.value);
+    trendPaint.color =
+        style.pulseRateColor.withValues(alpha: 0.3 * animation.value);
     canvas.drawPath(pulsePath, trendPaint);
   }
 
@@ -356,7 +358,7 @@ class O2DataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.fill
-      ..color = color.withOpacity(animation.value);
+      ..color = color.withValues(alpha: animation.value);
     canvas.drawCircle(
       position,
       style.pointRadius,
@@ -365,7 +367,7 @@ class O2DataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.stroke
-      ..color = Colors.white.withOpacity(animation.value)
+      ..color = Colors.white.withValues(alpha: animation.value)
       ..strokeWidth = 1.5;
     canvas.drawCircle(
       position,
@@ -381,7 +383,7 @@ class O2DataPointDrawer {
     O2SaturationChartStyle style,
   ) {
     final paint = Paint()
-      ..color = style.selectedHighlightColor.withOpacity(0.2)
+      ..color = style.selectedHighlightColor.withValues(alpha: 0.2)
       ..strokeWidth = 2;
 
     canvas.drawLine(
@@ -418,7 +420,7 @@ class O2DataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.fill
-      ..color = style.primaryColor.withOpacity(animation.value);
+      ..color = style.primaryColor.withValues(alpha: animation.value);
     canvas.drawCircle(badgeCenter, badgeRadius, _dataPointPaint);
 
     textPainter.paint(

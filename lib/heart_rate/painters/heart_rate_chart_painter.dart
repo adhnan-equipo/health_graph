@@ -58,7 +58,7 @@ class HeartRateChartPainter extends CustomPainter {
   void _drawBackground(Canvas canvas) {
     canvas.drawRect(
       chartArea,
-      Paint()..color = Colors.white.withOpacity(0.8),
+      Paint()..color = Colors.white.withValues(alpha: 0.8),
     );
   }
 
@@ -71,7 +71,7 @@ class HeartRateChartPainter extends CustomPainter {
       // Draw range background
       canvas.drawRect(
         Rect.fromLTRB(chartArea.left, rangeTop, chartArea.right, rangeBottom),
-        Paint()..color = range.$4.withOpacity(0.1),
+        Paint()..color = range.$4.withValues(alpha: 0.1),
       );
 
       // Check if any data points fall within this range
@@ -164,8 +164,8 @@ class HeartRateChartPainter extends CustomPainter {
       Offset(0, chartArea.top),
       Offset(0, chartArea.bottom),
       [
-        style.primaryColor.withOpacity(0.15),
-        style.primaryColor.withOpacity(0.02),
+        style.primaryColor.withValues(alpha: 0.15),
+        style.primaryColor.withValues(alpha: 0.02),
       ],
     );
 
@@ -208,7 +208,7 @@ class HeartRateChartPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas) {
     final gridPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.2)
+      ..color = Colors.grey.withValues(alpha: 0.2)
       ..strokeWidth = 0.5;
 
     // Draw horizontal grid lines with values
@@ -276,7 +276,7 @@ class HeartRateChartPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: color.withOpacity(0.7),
+          color: color.withValues(alpha: 0.7),
           fontSize: 10,
           fontWeight: FontWeight.w500,
         ),
@@ -296,7 +296,7 @@ class HeartRateChartPainter extends CustomPainter {
     // Draw background
     canvas.drawRect(
       Rect.fromLTWH(bgLeft, bgTop, bgWidth, bgHeight),
-      Paint()..color = Colors.white.withOpacity(0.8),
+      Paint()..color = Colors.white.withValues(alpha: 0.8),
     );
 
     // Draw text centered

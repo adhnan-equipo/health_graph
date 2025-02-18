@@ -12,10 +12,10 @@ class BloodPressureChartStyle {
   final double singlePointRadius;
   final double lineThickness;
   final double singleLineThickness;
-  final TextStyle? gridLabelStyle;
-  final TextStyle? dateLabelStyle;
-  final TextStyle? headerStyle;
-  final TextStyle? subHeaderStyle;
+  final TextStyle gridLabelStyle;
+  final TextStyle dateLabelStyle;
+  final TextStyle headerStyle;
+  final TextStyle subHeaderStyle;
   final Color selectedTabColor;
   final Color unselectedTabColor;
   final Color gridLineColor;
@@ -30,6 +30,8 @@ class BloodPressureChartStyle {
   final Color confidenceIntervalColor;
   final LinearGradient systolicGradient;
   final LinearGradient diastolicGradient;
+  final String systolicLabels;
+  final String diastolicLabels;
 
   const BloodPressureChartStyle({
     this.systolicColor = const Color(0xFFE53E3E),
@@ -39,10 +41,12 @@ class BloodPressureChartStyle {
     this.singlePointRadius = 5.0, // Slightly larger for better visibility
     this.lineThickness = 2.0,
     this.singleLineThickness = 1.5, // Slightly thinner for single readings
-    this.gridLabelStyle,
-    this.dateLabelStyle,
-    this.headerStyle,
-    this.subHeaderStyle,
+    this.gridLabelStyle = const TextStyle(),
+    this.dateLabelStyle = const TextStyle(),
+    this.headerStyle = const TextStyle(),
+    this.systolicLabels = 'Normal Systolic Range',
+    this.diastolicLabels = 'Normal Diastolic Range',
+    this.subHeaderStyle = const TextStyle(),
     this.selectedTabColor = const Color(0xFF3182CE),
     this.unselectedTabColor = const Color(0xFF609FFF),
     this.gridLineColor = const Color(0xFFE2E8F0),

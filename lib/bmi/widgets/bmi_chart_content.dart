@@ -151,7 +151,7 @@ class _BMIChartContentState extends State<BMIChartContent> {
   }
 
   Rect _calculateChartArea(Size size) {
-    const leftPadding = 30.0;
+    const leftPadding = 35.0;
     const rightPadding = 10.0;
     const topPadding = 0.0;
     const bottomPadding = 0.0;

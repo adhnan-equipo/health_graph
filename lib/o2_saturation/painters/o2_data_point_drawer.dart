@@ -167,11 +167,13 @@ class O2DataPointDrawer {
       ..strokeWidth = style.lineThickness;
 
     // Draw O2 trend line
-    trendPaint.color = style.primaryColor.withOpacity(0.3 * animation.value);
+    trendPaint.color =
+        style.primaryColor.withValues(alpha: 0.3 * animation.value);
     canvas.drawPath(o2Path, trendPaint);
 
     // Draw pulse rate trend line
-    trendPaint.color = style.pulseRateColor.withOpacity(0.3 * animation.value);
+    trendPaint.color =
+        style.pulseRateColor.withValues(alpha: 0.3 * animation.value);
     canvas.drawPath(pulsePath, trendPaint);
   }
 
@@ -191,7 +193,7 @@ class O2DataPointDrawer {
         _getYPosition(data.minValue.toDouble(), chartArea, minValue, maxValue);
 
     final rangePaint = Paint()
-      ..color = style.primaryColor.withOpacity(0.2 * animation.value)
+      ..color = style.primaryColor.withValues(alpha: 0.2 * animation.value)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -219,7 +221,7 @@ class O2DataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.fill
-      ..color = color.withOpacity(animation.value);
+      ..color = color.withValues(alpha: animation.value);
     canvas.drawCircle(
       position,
       style.pointRadius,
@@ -228,7 +230,7 @@ class O2DataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.stroke
-      ..color = Colors.white.withOpacity(animation.value)
+      ..color = Colors.white.withValues(alpha: animation.value)
       ..strokeWidth = 1.5;
     canvas.drawCircle(
       position,
@@ -244,7 +246,7 @@ class O2DataPointDrawer {
     O2SaturationChartStyle style,
   ) {
     final paint = Paint()
-      ..color = style.selectedHighlightColor.withOpacity(0.2)
+      ..color = style.selectedHighlightColor.withValues(alpha: 0.2)
       ..strokeWidth = 2;
 
     canvas.drawLine(
@@ -281,7 +283,7 @@ class O2DataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.fill
-      ..color = style.primaryColor.withOpacity(animation.value);
+      ..color = style.primaryColor.withValues(alpha: animation.value);
     canvas.drawCircle(badgeCenter, badgeRadius, _dataPointPaint);
 
     textPainter.paint(

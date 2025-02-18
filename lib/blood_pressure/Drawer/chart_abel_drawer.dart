@@ -63,7 +63,7 @@ class ChartLabelDrawer {
 
       _textPainter.text = TextSpan(
         text: label,
-        style: style.defaultDateLabelStyle,
+        style: style.dateLabelStyle,
       );
       _textPainter.layout();
 
@@ -92,15 +92,12 @@ class ChartLabelDrawer {
   int _calculateLabelStep(int dataLength, DateRangeType viewType) {
     switch (viewType) {
       case DateRangeType.day:
-        // Show fewer labels for hourly data
         return (dataLength / 6).round().clamp(1, dataLength);
 
       case DateRangeType.week:
-        // Always show all weekday labels
         return 1;
 
       case DateRangeType.month:
-        // Show approximately 8-10 date labels
         if (dataLength <= 10) return 1;
         return (dataLength / 8).round().clamp(1, 5);
 

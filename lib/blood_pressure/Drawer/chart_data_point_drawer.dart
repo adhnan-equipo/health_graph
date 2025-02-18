@@ -142,11 +142,13 @@ class ChartDataPointDrawer {
       ..strokeWidth = 1.0;
 
     // Draw systolic trend line
-    trendPaint.color = style.systolicColor.withOpacity(0.3 * animation.value);
+    trendPaint.color =
+        style.systolicColor.withValues(alpha: 0.3 * animation.value);
     canvas.drawPath(systolicPath, trendPaint);
 
     // Draw diastolic trend line
-    trendPaint.color = style.diastolicColor.withOpacity(0.3 * animation.value);
+    trendPaint.color =
+        style.diastolicColor.withValues(alpha: 0.3 * animation.value);
     canvas.drawPath(diastolicPath, trendPaint);
   }
 
@@ -157,7 +159,7 @@ class ChartDataPointDrawer {
     BloodPressureChartStyle style,
   ) {
     final paint = Paint()
-      ..color = style.selectedHighlightColor.withOpacity(0.2)
+      ..color = style.selectedHighlightColor.withValues(alpha: 0.2)
       ..strokeWidth = 2;
 
     canvas.drawLine(
@@ -181,8 +183,8 @@ class ChartDataPointDrawer {
   ) {
     _dataPointPaint
       ..color = (isSelected
-          ? style.connectorColor.withOpacity(animation.value * 0.8)
-          : style.connectorColor.withOpacity(animation.value * 0.3))
+          ? style.connectorColor.withValues(alpha: animation.value * 0.8)
+          : style.connectorColor.withValues(alpha: animation.value * 0.3))
       ..strokeWidth = style.lineThickness;
 
     canvas.drawLine(
@@ -205,7 +207,7 @@ class ChartDataPointDrawer {
     bool isSelected,
   ) {
     _dataPointPaint
-      ..color = style.systolicColor.withOpacity(animation.value * 0.5)
+      ..color = style.systolicColor.withValues(alpha: animation.value * 0.5)
       ..strokeWidth = style.lineThickness;
     canvas.drawLine(
       positions.maxSystolicPoint,
@@ -214,7 +216,7 @@ class ChartDataPointDrawer {
     );
 
     _dataPointPaint.color =
-        style.diastolicColor.withOpacity(animation.value * 0.5);
+        style.diastolicColor.withValues(alpha: animation.value * 0.5);
     canvas.drawLine(
       positions.maxDiastolicPoint,
       positions.minDiastolicPoint,
@@ -223,8 +225,8 @@ class ChartDataPointDrawer {
 
     _dataPointPaint
       ..color = (isSelected
-          ? style.connectorColor.withOpacity(animation.value * 0.8)
-          : style.connectorColor.withOpacity(animation.value * 0.3))
+          ? style.connectorColor.withValues(alpha: animation.value * 0.8)
+          : style.connectorColor.withValues(alpha: animation.value * 0.3))
       ..strokeWidth = style.lineThickness / 2;
     canvas.drawLine(
       positions.minSystolicPoint,
@@ -256,7 +258,7 @@ class ChartDataPointDrawer {
 
       _dataPointPaint
         ..style = PaintingStyle.fill
-        ..color = color.withOpacity(animation.value);
+        ..color = color.withValues(alpha: animation.value);
       canvas.drawCircle(
         position,
         isRangeData ? style.pointRadius : style.pointRadius * 1.5,
@@ -265,7 +267,7 @@ class ChartDataPointDrawer {
 
       _dataPointPaint
         ..style = PaintingStyle.stroke
-        ..color = Colors.white.withOpacity(animation.value)
+        ..color = Colors.white.withValues(alpha: animation.value)
         ..strokeWidth = 1.5;
       canvas.drawCircle(
         position,
@@ -297,20 +299,20 @@ class ChartDataPointDrawer {
     final textPainter = TextPainter(
       text: TextSpan(
         text: count.toString(),
-        style: style.dateLabelStyle,
+        style: style.gridLabelStyle,
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
     final badgeRadius = max(textPainter.width, textPainter.height) * 0.7;
     final badgeCenter = Offset(
-      position.dx + style.pointRadius * 2,
-      position.dy - style.pointRadius * 2,
+      position.dx + style.pointRadius * 0,
+      position.dy - style.pointRadius * 6,
     );
 
     _dataPointPaint
       ..style = PaintingStyle.fill
-      ..color = style.systolicColor.withOpacity(animation.value);
+      ..color = style.systolicColor.withValues(alpha: animation.value);
     canvas.drawCircle(badgeCenter, badgeRadius, _dataPointPaint);
 
     textPainter.paint(

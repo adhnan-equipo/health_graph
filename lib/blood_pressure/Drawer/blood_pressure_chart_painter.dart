@@ -52,7 +52,7 @@ class BloodPressureChartPainter extends CustomPainter {
       canvas,
       chartArea,
       yAxisValues,
-      style.defaultDateLabelStyle,
+      style.dateLabelStyle!,
     );
     _labelDrawer.drawBottomLabels(
         canvas, chartArea, data, config.viewType, style);

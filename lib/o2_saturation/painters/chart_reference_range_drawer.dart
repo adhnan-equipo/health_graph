@@ -29,7 +29,7 @@ class O2ReferenceRangeDrawer {
     );
 
     // Fixed: Remove the incorrect assignment
-    rangePaint.color = style.normalRangeColor.withOpacity(0.1);
+    rangePaint.color = style.normalRangeColor.withValues(alpha: 0.1);
     canvas.drawRect(normalRangeRect, rangePaint);
 
     // Draw mild range (90-94%)
@@ -40,7 +40,7 @@ class O2ReferenceRangeDrawer {
       minValue,
       maxValue,
     );
-    rangePaint.color = style.mildRangeColor.withOpacity(0.1);
+    rangePaint.color = style.mildRangeColor.withValues(alpha: 0.1);
     canvas.drawRect(mildRangeRect, rangePaint);
 
     // Draw moderate range (85-89%)
@@ -51,7 +51,7 @@ class O2ReferenceRangeDrawer {
       minValue,
       maxValue,
     );
-    rangePaint.color = style.moderateRangeColor.withOpacity(0.1);
+    rangePaint.color = style.moderateRangeColor.withValues(alpha: 0.1);
     canvas.drawRect(moderateRangeRect, rangePaint);
 
     // Draw severe range (<85%)
@@ -62,7 +62,7 @@ class O2ReferenceRangeDrawer {
       minValue,
       maxValue,
     );
-    rangePaint.color = style.severeRangeColor.withOpacity(0.1);
+    rangePaint.color = style.severeRangeColor.withValues(alpha: 0.1);
     canvas.drawRect(severeRangeRect, rangePaint);
 
     // Draw labels
@@ -71,7 +71,7 @@ class O2ReferenceRangeDrawer {
       rect: normalRangeRect,
       text: 'Normal (95-100%)',
       style: TextStyle(
-        color: style.normalRangeColor.withOpacity(0.7),
+        color: style.normalRangeColor.withValues(alpha: 0.7),
         fontSize: 10,
         fontWeight: FontWeight.w500,
       ),
@@ -82,7 +82,7 @@ class O2ReferenceRangeDrawer {
       rect: mildRangeRect,
       text: 'Mild (90-94%)',
       style: TextStyle(
-        color: style.mildRangeColor.withOpacity(0.7),
+        color: style.mildRangeColor.withValues(alpha: 0.7),
         fontSize: 10,
         fontWeight: FontWeight.w500,
       ),
@@ -115,7 +115,7 @@ class O2ReferenceRangeDrawer {
       ..layout(maxWidth: rect.width - 20);
 
     final backgroundPaint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
+      ..color = Colors.white.withValues(alpha: 0.8)
       ..style = PaintingStyle.fill;
 
     final textBgRect = Rect.fromLTWH(

@@ -100,7 +100,7 @@ class BMIChartPainter extends CustomPainter {
 
     // Draw semi-transparent white background for better readability
     final backgroundPaint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
+      ..color = Colors.white.withValues(alpha: 0.8)
       ..style = PaintingStyle.fill;
 
     final textBgRect = Rect.fromLTWH(
@@ -151,7 +151,7 @@ class BMIChartPainter extends CustomPainter {
       if ((endY - startY).abs() < 10) return;
 
       // Draw range background
-      rangePaint.color = color.withOpacity(0.1);
+      rangePaint.color = color.withValues(alpha: 0.1);
       final rangeRect = Rect.fromLTRB(
         chartArea.left,
         startY,
@@ -211,7 +211,7 @@ class BMIChartPainter extends CustomPainter {
 
     canvas.drawRect(
       backgroundRect,
-      Paint()..color = Colors.white.withOpacity(0.8),
+      Paint()..color = Colors.white.withValues(alpha: 0.8),
     );
 
     // Draw text centered in the range

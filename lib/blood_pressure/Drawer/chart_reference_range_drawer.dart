@@ -22,7 +22,7 @@ class ChartReferenceRangeDrawer {
           minValue, maxValue),
     );
 
-    rangePaint.color = style.normalRangeColor.withOpacity(0.1);
+    rangePaint.color = style.normalRangeColor.withValues(alpha: 0.1);
     canvas.drawRect(systolicRangeRect, rangePaint);
 
     // Draw diastolic normal range
@@ -41,15 +41,15 @@ class ChartReferenceRangeDrawer {
     _drawRangeLabel(
       canvas: canvas,
       rect: systolicRangeRect,
-      text: 'Normal Systolic Range',
-      style: style.defaultGridLabelStyle,
+      text: style.systolicLabels,
+      style: style.subHeaderStyle,
     );
 
     _drawRangeLabel(
       canvas: canvas,
       rect: diastolicRangeRect,
-      text: 'Normal Diastolic Range',
-      style: style.defaultGridLabelStyle,
+      text: style.diastolicLabels,
+      style: style.subHeaderStyle,
     );
   }
 
@@ -63,9 +63,7 @@ class ChartReferenceRangeDrawer {
       ..text = TextSpan(text: text, style: style)
       ..layout(maxWidth: rect.width - 20); // Account for padding
 
-    final backgroundPaint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
-      ..style = PaintingStyle.fill;
+    final backgroundPaint = Paint()..color = Colors.transparent;
 
     final textBgRect = Rect.fromLTWH(
       rect.left + 10, // Left padding

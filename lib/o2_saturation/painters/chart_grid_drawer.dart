@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class ChartGridDrawer {
   final Paint _gridPaint = Paint()
-    ..color = Colors.grey.withOpacity(0.2)
+    ..color = Colors.grey.withValues(alpha: 0.2)
     ..strokeWidth = 0.5
     ..style = PaintingStyle.stroke;
 

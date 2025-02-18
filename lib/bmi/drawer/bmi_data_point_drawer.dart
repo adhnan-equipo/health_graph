@@ -106,7 +106,7 @@ class BMIDataPointDrawer {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = style.lineThickness
-      ..color = style.lineColor.withOpacity(animation.value);
+      ..color = style.lineColor.withValues(alpha: animation.value);
 
     canvas.drawPath(path, paint);
   }
@@ -153,7 +153,7 @@ class BMIDataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.fill
-      ..color = style.pointColor.withOpacity(animation.value);
+      ..color = style.pointColor.withValues(alpha: animation.value);
     canvas.drawCircle(
       position,
       isMultipleReadings ? style.pointRadius : style.pointRadius * 1.5,
@@ -162,7 +162,7 @@ class BMIDataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.stroke
-      ..color = Colors.white.withOpacity(animation.value)
+      ..color = Colors.white.withValues(alpha: animation.value)
       ..strokeWidth = 1.5;
     canvas.drawCircle(
       position,
@@ -214,7 +214,7 @@ class BMIDataPointDrawer {
 
     _dataPointPaint
       ..style = PaintingStyle.fill
-      ..color = style.pointColor.withOpacity(animation.value);
+      ..color = style.pointColor.withValues(alpha: animation.value);
     canvas.drawCircle(badgeCenter, badgeRadius, _dataPointPaint);
 
     textPainter.paint(
