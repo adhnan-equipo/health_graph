@@ -45,26 +45,37 @@ class ChartCalculations {
     final minValue = allValues.reduce(min);
     final maxValue = allValues.reduce(max);
 
-    // Calculate range with minimal padding
+    // Calculate range with increased padding
     final range = maxValue - minValue;
-    final topPadding = range * _topPaddingPercent;
-    final bottomPadding = range * _bottomPaddingPercent;
+    final topPadding = range * 0.15; // Increased from 0.01
+    final bottomPadding = range * 0.15; // Increased from 0.12
 
-    // Round to nearest 10
+    // Round to nearest 10 with extra space
     final adjustedMin = max(0, ((minValue - bottomPadding) / 10).floor() * 10);
     var adjustedMax = ((maxValue + topPadding) / 10).ceil() * 10;
 
-    // Ensure maximum is at least 200 for blood pressure
-    adjustedMax = max(adjustedMax, 200);
+    // Ensure maximum is at least 200 and has enough padding
+    adjustedMax = max(adjustedMax, max(200, maxValue + 20));
 
-    // Calculate optimal step size
+    // Calculate optimal step size with better distribution
     final effectiveRange = adjustedMax - adjustedMin;
     var stepSize = (effectiveRange / 6).ceil();
     stepSize = _roundToNiceNumber(stepSize);
 
+    // Generate axis values with better distribution
     final yAxisValues = _generateAxisValues(adjustedMin, adjustedMax, stepSize);
 
     return (yAxisValues, adjustedMin.toDouble(), adjustedMax.toDouble());
+  }
+
+// Helper method for better step size calculation
+  static int _roundToNiceNumber(int number) {
+    if (number <= 5) return 5;
+    if (number <= 10) return 10;
+    if (number <= 20) return 20;
+    if (number <= 25) return 25;
+    if (number <= 50) return 50;
+    return ((number + 99) ~/ 100) * 100; // Increased scale for larger numbers
   }
 
   static Rect calculateChartArea(Size size) {
@@ -80,15 +91,6 @@ class ChartCalculations {
       size.width - rightPadding,
       size.height - bottomPadding,
     );
-  }
-
-  static int _roundToNiceNumber(int number) {
-    if (number <= 5) return 5;
-    if (number <= 10) return 10;
-    if (number <= 20) return 20;
-    if (number <= 25) return 25;
-    if (number <= 50) return 50;
-    return ((number + 49) ~/ 50) * 50;
   }
 
   static List<int> _generateAxisValues(int start, int end, int step) {

@@ -337,9 +337,9 @@ class ChartDataPointDrawer {
   ) {
     // Gradient background
     final gradientRect = Rect.fromLTRB(
-      x - 20,
+      x - 30, // Increased from 20
       chartArea.top,
-      x + 20,
+      x + 30, // Increased from 20
       chartArea.bottom,
     );
 
@@ -348,8 +348,8 @@ class ChartDataPointDrawer {
       end: Alignment.centerRight,
       colors: [
         style.selectedHighlightColor.withOpacity(0),
-        style.selectedHighlightColor.withOpacity(0.2),
-        style.selectedHighlightColor.withOpacity(0.2),
+        style.selectedHighlightColor.withOpacity(0.3), // Increased from 0.2
+        style.selectedHighlightColor.withOpacity(0.3), // Increased from 0.2
         style.selectedHighlightColor.withOpacity(0),
       ],
       stops: const [0.0, 0.3, 0.7, 1.0],
@@ -361,10 +361,11 @@ class ChartDataPointDrawer {
 
     canvas.drawRect(gradientRect, paint);
 
-    // Vertical line with animated dash effect
+    // Make vertical line more visible
     final dashPaint = Paint()
-      ..color = style.selectedHighlightColor.withOpacity(0.4)
-      ..strokeWidth = 1.5
+      ..color =
+          style.selectedHighlightColor.withOpacity(0.6) // Increased from 0.4
+      ..strokeWidth = 2.0 // Increased from 1.5
       ..style = PaintingStyle.stroke;
 
     final dashPath = Path();

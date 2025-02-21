@@ -6,7 +6,7 @@ import '../../../models/date_range_type.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../styles/blood_pressure_chart_style.dart';
 
-class ChartTooltip extends StatelessWidget {
+class ChartTooltip extends StatefulWidget {
   final ProcessedBloodPressureData data;
   final List<ProcessedBloodPressureData> rangeData;
   final DateRangeType viewType;
@@ -26,13 +26,21 @@ class ChartTooltip extends StatelessWidget {
     this.onTooltipTap,
   }) : super(key: key);
 
-  String _formatTimeRange() {
-    final startDate = data.startDate;
-    final endDate = data.endDate;
+  @override
+  State<ChartTooltip> createState() => _ChartTooltipState();
+}
 
-    switch (viewType) {
+class _ChartTooltipState extends State<ChartTooltip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  String _formatTimeRange() {
+    final startDate = widget.data.startDate;
+    final endDate = widget.data.endDate;
+
+    switch (widget.viewType) {
       case DateRangeType.day:
-        if (rangeData.length <= 1) {
+        if (widget.rangeData.length <= 1) {
           return DateFormat('MMM d, HH:mm').format(startDate);
         }
         return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
@@ -58,7 +66,7 @@ class ChartTooltip extends StatelessWidget {
   }
 
   Widget _buildMeasurementsList(BuildContext context) {
-    final measurements = data.originalMeasurements;
+    final measurements = widget.data.originalMeasurements;
     if (measurements.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -66,7 +74,7 @@ class ChartTooltip extends StatelessWidget {
       children: [
         const Divider(height: 16),
         Text(
-          'Measurements (${measurements.length})',
+          '${widget.style.measurementsLabels} (${measurements.length})',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -80,7 +88,7 @@ class ChartTooltip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Summary',
+          widget.style.summaryLabels,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -88,27 +96,27 @@ class ChartTooltip extends StatelessWidget {
         const SizedBox(height: 12),
         _buildSummaryRow(
           context,
-          'Systolic',
-          data.originalMeasurements.length > 1
-              ? '${data.minSystolic} - ${data.maxSystolic}'
-              : '${data.minSystolic}',
-          style.systolicColor,
+          widget.style.systolic,
+          widget.data.originalMeasurements.length > 1
+              ? '${widget.data.minSystolic} - ${widget.data.maxSystolic}'
+              : '${widget.data.minSystolic}',
+          widget.style.systolicColor,
         ),
         const SizedBox(height: 8),
         _buildSummaryRow(
           context,
-          'Diastolic',
-          data.originalMeasurements.length > 1
-              ? '${data.minDiastolic} - ${data.maxDiastolic}'
-              : '${data.minDiastolic}',
-          style.diastolicColor,
+          widget.style.diastolic,
+          widget.data.originalMeasurements.length > 1
+              ? '${widget.data.minDiastolic} - ${widget.data.maxDiastolic}'
+              : '${widget.data.minDiastolic}',
+          widget.style.diastolicColor,
         ),
         const SizedBox(height: 8),
-        if (data.originalMeasurements.length > 1)
+        if (widget.data.originalMeasurements.length > 1)
           _buildSummaryRow(
             context,
-            'Average',
-            '${data.avgSystolic.toStringAsFixed(1)}/${data.avgDiastolic.toStringAsFixed(1)}',
+            widget.style.averageLabels,
+            '${widget.data.avgSystolic.toStringAsFixed(1)}/${widget.data.avgDiastolic.toStringAsFixed(1)}',
             null,
           ),
       ],
@@ -154,55 +162,94 @@ class ChartTooltip extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 8,
-      shadowColor: Colors.black26,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
       ),
-      child: GestureDetector(
-        onTap: () {
-          onTooltipTap?.call(data);
-          onClose(); // Add this line to dismiss the tooltip
-        },
-        child: Container(
-          width: 200,
-          constraints: BoxConstraints(
-            maxHeight: screenSize.height * 0.6,
-          ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _formatTimeRange(),
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+    );
+    _animationController.forward();
+  }
+
+  Future<void> dismiss() async {
+    await _animationController.reverse();
+    widget.onClose();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) => Opacity(
+        opacity: _fadeAnimation.value,
+        child: Transform.scale(
+          scale: 0.95 + (0.05 * _fadeAnimation.value),
+          child: Card(
+            elevation: 8 * _fadeAnimation.value,
+            shadowColor: Colors.black26,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: GestureDetector(
+              onTap: () async {
+                widget.onTooltipTap?.call(widget.data);
+                await dismiss();
+              },
+              child: Container(
+                width: 200,
+                constraints: BoxConstraints(
+                  maxHeight: widget.screenSize.height * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _formatTimeRange(),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: dismiss,
+                            ),
+                          ],
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 16),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: onClose,
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        _buildSummarySection(context),
+                        if (widget.data.originalMeasurements.length > 1)
+                          _buildMeasurementsList(context),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  _buildSummarySection(context),
-                  if (data.originalMeasurements.length > 1)
-                    _buildMeasurementsList(context),
-                ],
+                ),
               ),
             ),
           ),

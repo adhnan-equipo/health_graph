@@ -32,6 +32,11 @@ class BloodPressureChartStyle {
   final LinearGradient diastolicGradient;
   final String systolicLabels;
   final String diastolicLabels;
+  final String measurementsLabels;
+  final String summaryLabels;
+  final String averageLabels;
+  final String systolic;
+  final String diastolic;
 
   const BloodPressureChartStyle({
     this.systolicColor = const Color(0xFFE53E3E),
@@ -46,6 +51,11 @@ class BloodPressureChartStyle {
     this.headerStyle = const TextStyle(),
     this.systolicLabels = 'Normal Systolic Range',
     this.diastolicLabels = 'Normal Diastolic Range',
+    this.measurementsLabels = 'Measurements',
+    this.summaryLabels = 'Summary',
+    this.averageLabels = 'Average',
+    this.systolic = 'Systolic',
+    this.diastolic = 'Diastolic',
     this.subHeaderStyle = const TextStyle(),
     this.selectedTabColor = const Color(0xFF3182CE),
     this.unselectedTabColor = const Color(0xFF609FFF),
