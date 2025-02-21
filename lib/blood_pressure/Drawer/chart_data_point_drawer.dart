@@ -1,8 +1,8 @@
-import 'dart:math';
-
+// Updated ChartDataPointDrawer with improved plotting
 import 'package:flutter/material.dart';
 
 import '../models/processed_blood_pressure_data.dart';
+import '../services/chart_calculations.dart';
 import '../styles/blood_pressure_chart_style.dart';
 
 class ChartDataPointDrawer {
@@ -20,97 +20,95 @@ class ChartDataPointDrawer {
   ) {
     if (data.isEmpty) return;
 
-    final xStep = chartArea.width / (data.length - 1);
+    // Draw trend lines first
+    if (data.length > 1) {
+      _drawTrendLines(
+        canvas,
+        chartArea,
+        data,
+        style,
+        animation,
+        minValue,
+        maxValue,
+      );
+    }
 
-    _drawTrendLines(
-      canvas,
-      chartArea,
-      data,
-      xStep,
-      style,
-      animation,
-      minValue,
-      maxValue,
-    );
-
+    // Draw each data point
     for (var i = 0; i < data.length; i++) {
       final entry = data[i];
       if (entry.isEmpty) continue;
 
-      final x = chartArea.left + (i * xStep);
-      final positions = _calculateDataPointPositions(
-        entry,
-        x,
-        chartArea,
-        minValue,
-        maxValue,
-      );
+      final x = ChartCalculations.calculateXPosition(i, data.length, chartArea);
 
-      final isSelected = entry == selectedData;
-
-      if (isSelected) {
-        _drawSelectionHighlight(canvas, x, chartArea, style);
-      }
-
-      if (entry.dataPointCount > 1) {
-        _drawRangeLines(
-          canvas,
-          positions,
-          style,
-          animation,
-          isSelected,
+      // Ensure point is within drawable area
+      if (x >= chartArea.left && x <= chartArea.right) {
+        final positions = _calculateDataPointPositions(
+          entry,
+          x,
+          chartArea,
+          minValue,
+          maxValue,
         );
-      } else {
-        _drawSinglePointConnector(
-          canvas,
-          positions,
-          style,
-          animation,
-          isSelected,
-        );
-      }
 
-      _drawPoints(
-        canvas,
-        positions,
-        style,
-        animation,
-        isSelected,
-        entry.dataPointCount > 1,
-      );
+        final isSelected = entry == selectedData;
+        final animationValue =
+            _calculateAnimationValue(i, data.length, animation);
 
-      if (entry.dataPointCount > 1) {
-        _drawReadingCount(
-          canvas,
-          positions.maxSystolicPoint,
-          entry.dataPointCount,
-          style,
-          animation,
-        );
+        if (isSelected) {
+          _drawSelectionHighlight(canvas, x, chartArea, style, animationValue);
+        }
+
+        // Draw the point based on type
+        if (entry.dataPointCount == 1) {
+          _drawSinglePoint(
+            canvas,
+            positions,
+            style,
+            animationValue,
+            isSelected,
+          );
+        } else {
+          _drawRangePoint(
+            canvas,
+            positions,
+            style,
+            animationValue,
+            isSelected,
+          );
+        }
       }
     }
+  }
+
+  double _calculateAnimationValue(
+      int index, int totalPoints, Animation<double> animation) {
+    // Stagger animation based on point index
+    final delay = index / (totalPoints * 2);
+    final duration = 1.0 / totalPoints;
+
+    if (animation.value < delay) return 0.0;
+    if (animation.value > delay + duration) return 1.0;
+
+    return ((animation.value - delay) / duration).clamp(0.0, 1.0);
   }
 
   void _drawTrendLines(
     Canvas canvas,
     Rect chartArea,
     List<ProcessedBloodPressureData> data,
-    double xStep,
     BloodPressureChartStyle style,
     Animation<double> animation,
     double minValue,
     double maxValue,
   ) {
-    if (data.length < 2) return;
-
     final systolicPath = Path();
     final diastolicPath = Path();
-    var isFirstValidPoint = true;
+    var isFirstPoint = true;
 
     for (var i = 0; i < data.length; i++) {
       if (data[i].isEmpty) continue;
 
-      final x = chartArea.left + (i * xStep);
+      final x = ChartCalculations.calculateXPosition(i, data.length, chartArea);
       final entry = data[i];
 
       final systolicY = _getYPosition(
@@ -126,30 +124,208 @@ class ChartDataPointDrawer {
         maxValue,
       );
 
-      if (isFirstValidPoint) {
+      if (isFirstPoint) {
         systolicPath.moveTo(x, systolicY);
         diastolicPath.moveTo(x, diastolicY);
-        isFirstValidPoint = false;
+        isFirstPoint = false;
       } else {
         systolicPath.lineTo(x, systolicY);
         diastolicPath.lineTo(x, diastolicY);
       }
     }
 
-    // Draw trend lines
+    // Draw trend lines with animation
     final trendPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
-    // Draw systolic trend line
-    trendPaint.color =
-        style.systolicColor.withValues(alpha: 0.3 * animation.value);
+    trendPaint.color = style.systolicColor.withOpacity(0.3 * animation.value);
     canvas.drawPath(systolicPath, trendPaint);
 
-    // Draw diastolic trend line
-    trendPaint.color =
-        style.diastolicColor.withValues(alpha: 0.3 * animation.value);
+    trendPaint.color = style.diastolicColor.withOpacity(0.3 * animation.value);
     canvas.drawPath(diastolicPath, trendPaint);
+  }
+
+  void _drawRangePoint(
+    Canvas canvas,
+    ({
+      Offset maxSystolicPoint,
+      Offset minSystolicPoint,
+      Offset maxDiastolicPoint,
+      Offset minDiastolicPoint
+    }) positions,
+    BloodPressureChartStyle style,
+    double animationValue,
+    bool isSelected,
+  ) {
+    final rangeWidth = style.lineThickness * 3;
+
+    // Draw systolic range with animation
+    _drawAnimatedRangeLine(
+      canvas,
+      positions.maxSystolicPoint,
+      positions.minSystolicPoint,
+      style.systolicColor,
+      rangeWidth,
+      animationValue,
+      isSelected,
+      style,
+    );
+
+    // Draw diastolic range with animation
+    _drawAnimatedRangeLine(
+      canvas,
+      positions.maxDiastolicPoint,
+      positions.minDiastolicPoint,
+      style.diastolicColor,
+      rangeWidth,
+      animationValue,
+      isSelected,
+      style,
+    );
+  }
+
+  void _drawAnimatedRangeLine(
+    Canvas canvas,
+    Offset start,
+    Offset end,
+    Color color,
+    double width,
+    double animationValue,
+    bool isSelected,
+    BloodPressureChartStyle style,
+  ) {
+    // Animate line drawing from center
+    final center = Offset(
+      (start.dx + end.dx) / 2,
+      (start.dy + end.dy) / 2,
+    );
+
+    final animatedStart = Offset.lerp(center, start, animationValue)!;
+    final animatedEnd = Offset.lerp(center, end, animationValue)!;
+
+    // Draw outer line
+    _dataPointPaint
+      ..color = color.withValues(alpha: 0.1)
+      ..strokeWidth = width
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(animatedStart, animatedEnd, _dataPointPaint);
+
+    // Draw inner line for hollow effect
+    if (!isSelected) {
+      _dataPointPaint
+        ..color = color.withValues(alpha: 0.6)
+        ..strokeWidth = width * 0.6;
+      canvas.drawLine(animatedStart, animatedEnd, _dataPointPaint);
+    }
+
+    // Draw end caps with animation
+    _drawAnimatedPoint(
+      canvas,
+      animatedStart,
+      color,
+      width / 2,
+      animationValue,
+      isSelected,
+      style,
+    );
+    _drawAnimatedPoint(
+      canvas,
+      animatedEnd,
+      color,
+      width / 2,
+      animationValue,
+      isSelected,
+      style,
+    );
+  }
+
+  void _drawAnimatedPoint(
+    Canvas canvas,
+    Offset position,
+    Color color,
+    double radius,
+    double animationValue,
+    bool isSelected,
+    BloodPressureChartStyle style,
+  ) {
+    // Scale animation for points
+    final animatedRadius = radius * animationValue;
+
+    if (isSelected) {
+      // Draw selection highlight
+      _dataPointPaint
+        ..color = style.selectedHighlightColor.withOpacity(0.3 * animationValue)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(position, animatedRadius * 2, _dataPointPaint);
+    }
+
+    // Draw outer circle
+    _dataPointPaint
+      ..color = color.withOpacity(animationValue)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawCircle(position, animatedRadius, _dataPointPaint);
+
+    // Fill circle if selected
+    if (isSelected) {
+      _dataPointPaint
+        ..style = PaintingStyle.fill
+        ..color = color.withOpacity(animationValue);
+      canvas.drawCircle(position, animatedRadius - 1, _dataPointPaint);
+    }
+  }
+
+  void _drawSinglePoint(
+    Canvas canvas,
+    ({
+      Offset maxSystolicPoint,
+      Offset minSystolicPoint,
+      Offset maxDiastolicPoint,
+      Offset minDiastolicPoint
+    }) positions,
+    BloodPressureChartStyle style,
+    double animationValue,
+    bool isSelected,
+  ) {
+    // Draw connecting line with animation
+    if (isSelected) {
+      final start = positions.maxSystolicPoint;
+      final end = positions.maxDiastolicPoint;
+      final center = Offset(
+        (start.dx + end.dx) / 2,
+        (start.dy + end.dy) / 2,
+      );
+
+      final animatedStart = Offset.lerp(center, start, animationValue)!;
+      final animatedEnd = Offset.lerp(center, end, animationValue)!;
+
+      _dataPointPaint
+        ..color = style.connectorColor.withOpacity(0.5 * animationValue)
+        ..strokeWidth = style.lineThickness;
+      canvas.drawLine(animatedStart, animatedEnd, _dataPointPaint);
+    }
+
+    // Draw points with animation
+    _drawAnimatedPoint(
+      canvas,
+      positions.maxSystolicPoint,
+      style.systolicColor,
+      style.pointRadius * 1.2,
+      animationValue,
+      isSelected,
+      style,
+    );
+
+    _drawAnimatedPoint(
+      canvas,
+      positions.maxDiastolicPoint,
+      style.diastolicColor,
+      style.pointRadius * 1.2,
+      animationValue,
+      isSelected,
+      style,
+    );
   }
 
   void _drawSelectionHighlight(
@@ -157,171 +333,57 @@ class ChartDataPointDrawer {
     double x,
     Rect chartArea,
     BloodPressureChartStyle style,
+    double animationValue,
   ) {
+    // Gradient background
+    final gradientRect = Rect.fromLTRB(
+      x - 20,
+      chartArea.top,
+      x + 20,
+      chartArea.bottom,
+    );
+
+    final gradient = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [
+        style.selectedHighlightColor.withOpacity(0),
+        style.selectedHighlightColor.withOpacity(0.2),
+        style.selectedHighlightColor.withOpacity(0.2),
+        style.selectedHighlightColor.withOpacity(0),
+      ],
+      stops: const [0.0, 0.3, 0.7, 1.0],
+    );
+
     final paint = Paint()
-      ..color = style.selectedHighlightColor.withValues(alpha: 0.2)
-      ..strokeWidth = 2;
+      ..shader = gradient.createShader(gradientRect)
+      ..style = PaintingStyle.fill;
 
-    canvas.drawLine(
-      Offset(x, chartArea.top),
-      Offset(x, chartArea.bottom),
-      paint,
-    );
-  }
+    canvas.drawRect(gradientRect, paint);
 
-  void _drawSinglePointConnector(
-    Canvas canvas,
-    ({
-      Offset maxSystolicPoint,
-      Offset minSystolicPoint,
-      Offset maxDiastolicPoint,
-      Offset minDiastolicPoint
-    }) positions,
-    BloodPressureChartStyle style,
-    Animation<double> animation,
-    bool isSelected,
-  ) {
-    _dataPointPaint
-      ..color = (isSelected
-          ? style.connectorColor.withValues(alpha: animation.value * 0.8)
-          : style.connectorColor.withValues(alpha: animation.value * 0.3))
-      ..strokeWidth = style.lineThickness;
+    // Vertical line with animated dash effect
+    final dashPaint = Paint()
+      ..color = style.selectedHighlightColor.withOpacity(0.4)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
 
-    canvas.drawLine(
-      positions.maxSystolicPoint,
-      positions.maxDiastolicPoint,
-      _dataPointPaint,
-    );
-  }
+    final dashPath = Path();
+    double dash = 4;
+    double gap = 4;
+    double startY = chartArea.top;
 
-  void _drawRangeLines(
-    Canvas canvas,
-    ({
-      Offset maxSystolicPoint,
-      Offset minSystolicPoint,
-      Offset maxDiastolicPoint,
-      Offset minDiastolicPoint
-    }) positions,
-    BloodPressureChartStyle style,
-    Animation<double> animation,
-    bool isSelected,
-  ) {
-    _dataPointPaint
-      ..color = style.systolicColor.withValues(alpha: animation.value * 0.5)
-      ..strokeWidth = style.lineThickness;
-    canvas.drawLine(
-      positions.maxSystolicPoint,
-      positions.minSystolicPoint,
-      _dataPointPaint,
-    );
-
-    _dataPointPaint.color =
-        style.diastolicColor.withValues(alpha: animation.value * 0.5);
-    canvas.drawLine(
-      positions.maxDiastolicPoint,
-      positions.minDiastolicPoint,
-      _dataPointPaint,
-    );
-
-    _dataPointPaint
-      ..color = (isSelected
-          ? style.connectorColor.withValues(alpha: animation.value * 0.8)
-          : style.connectorColor.withValues(alpha: animation.value * 0.3))
-      ..strokeWidth = style.lineThickness / 2;
-    canvas.drawLine(
-      positions.minSystolicPoint,
-      positions.maxDiastolicPoint,
-      _dataPointPaint,
-    );
-  }
-
-  void _drawPoints(
-    Canvas canvas,
-    ({
-      Offset maxSystolicPoint,
-      Offset minSystolicPoint,
-      Offset maxDiastolicPoint,
-      Offset minDiastolicPoint
-    }) positions,
-    BloodPressureChartStyle style,
-    Animation<double> animation,
-    bool isSelected,
-    bool isRangeData,
-  ) {
-    void drawPoint(Offset position, Color color) {
-      if (isSelected) {
-        _dataPointPaint
-          ..style = PaintingStyle.fill
-          ..color = style.selectedHighlightColor;
-        canvas.drawCircle(position, style.pointRadius * 2, _dataPointPaint);
-      }
-
-      _dataPointPaint
-        ..style = PaintingStyle.fill
-        ..color = color.withValues(alpha: animation.value);
-      canvas.drawCircle(
-        position,
-        isRangeData ? style.pointRadius : style.pointRadius * 1.5,
-        _dataPointPaint,
-      );
-
-      _dataPointPaint
-        ..style = PaintingStyle.stroke
-        ..color = Colors.white.withValues(alpha: animation.value)
-        ..strokeWidth = 1.5;
-      canvas.drawCircle(
-        position,
-        isRangeData ? style.pointRadius : style.pointRadius * 1.5,
-        _dataPointPaint,
-      );
+    while (startY < chartArea.bottom) {
+      dashPath.moveTo(x, startY);
+      dashPath.lineTo(x, startY + dash);
+      startY += dash + gap;
     }
 
-    // Draw systolic points
-    drawPoint(positions.maxSystolicPoint, style.systolicColor);
-    if (isRangeData) {
-      drawPoint(positions.minSystolicPoint, style.systolicColor);
-    }
-
-    // Draw diastolic points
-    drawPoint(positions.maxDiastolicPoint, style.diastolicColor);
-    if (isRangeData) {
-      drawPoint(positions.minDiastolicPoint, style.diastolicColor);
-    }
-  }
-
-  void _drawReadingCount(
-    Canvas canvas,
-    Offset position,
-    int count,
-    BloodPressureChartStyle style,
-    Animation<double> animation,
-  ) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: count.toString(),
-        style: style.gridLabelStyle,
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final badgeRadius = max(textPainter.width, textPainter.height) * 0.7;
-    final badgeCenter = Offset(
-      position.dx + style.pointRadius * 0,
-      position.dy - style.pointRadius * 6,
-    );
-
-    _dataPointPaint
-      ..style = PaintingStyle.fill
-      ..color = style.systolicColor.withValues(alpha: animation.value);
-    canvas.drawCircle(badgeCenter, badgeRadius, _dataPointPaint);
-
-    textPainter.paint(
-      canvas,
-      Offset(
-        badgeCenter.dx - textPainter.width / 2,
-        badgeCenter.dy - textPainter.height / 2,
-      ),
-    );
+    // Animate dash offset
+    final dashOffset = (animationValue * (dash + gap)) % (dash + gap);
+    canvas.save();
+    canvas.translate(0, dashOffset);
+    canvas.drawPath(dashPath, dashPaint);
+    canvas.restore();
   }
 
   _calculateDataPointPositions(
@@ -356,7 +418,11 @@ class ChartDataPointDrawer {
   }
 
   double _getYPosition(
-      double value, Rect chartArea, double minValue, double maxValue) {
+    double value,
+    Rect chartArea,
+    double minValue,
+    double maxValue,
+  ) {
     return chartArea.bottom -
         ((value - minValue) / (maxValue - minValue)) * chartArea.height;
   }

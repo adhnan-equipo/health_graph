@@ -11,7 +11,6 @@ class ChartController extends ChangeNotifier {
   ChartViewConfig _config;
   ProcessedBloodPressureData? _selectedData;
   List<ProcessedBloodPressureData> _processedData = [];
-  double _baseScaleFactor = 1.0;
 
   ChartController({
     required List<BloodPressureData> data,
@@ -38,7 +37,6 @@ class ChartController extends ChangeNotifier {
       ..sort((a, b) => a.date.compareTo(b.date));
 
     // Calculate date range based on view type
-    final DateTime now = DateTime.now();
     DateTime startDate;
     DateTime endDate;
 
@@ -91,21 +89,10 @@ class ChartController extends ChangeNotifier {
   }
 
   void selectData(ProcessedBloodPressureData? data) {
-    if (_selectedData == data) return;
-    _selectedData = data;
-    notifyListeners();
-  }
-
-  void handleScaleStart(ScaleStartDetails details) {
-    _baseScaleFactor = _config.zoomLevel;
-  }
-
-  void handleScaleUpdate(ScaleUpdateDetails details) {
-    if (details.scale == 1.0) return;
-
-    final newZoomLevel = (_baseScaleFactor * details.scale).clamp(1.0, 4.0);
-    if (newZoomLevel != _config.zoomLevel) {
-      updateConfig(_config.copyWith(zoomLevel: newZoomLevel));
+    if (_selectedData?.startDate != data?.startDate) {
+      // Compare by date instead of direct comparison
+      _selectedData = data;
+      notifyListeners();
     }
   }
 

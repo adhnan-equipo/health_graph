@@ -47,7 +47,7 @@ class BMIChartPainter extends CustomPainter {
     _backgroundDrawer.drawBackground(canvas, chartArea);
     if (config.showGrid) {
       _gridDrawer.drawGrid(canvas, chartArea,
-          yAxisValues.map((e) => e.toInt()).toList(), minValue, maxValue);
+          yAxisValues.map((e) => e.toInt()).toList(), minValue, maxValue, 2);
     }
 
     // Draw BMI range indicators

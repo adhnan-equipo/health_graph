@@ -6,11 +6,10 @@ import '../../../models/date_range_type.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../styles/blood_pressure_chart_style.dart';
 
-class ChartTooltip extends StatelessWidget {
+class ChartTooltip extends StatefulWidget {
   final ProcessedBloodPressureData data;
   final List<ProcessedBloodPressureData> rangeData;
   final DateRangeType viewType;
-  final Offset position;
   final VoidCallback onClose;
   final BloodPressureChartStyle style;
   final Size screenSize;
@@ -21,20 +20,24 @@ class ChartTooltip extends StatelessWidget {
     required this.data,
     required this.rangeData,
     required this.viewType,
-    required this.position,
     required this.onClose,
     required this.style,
     required this.screenSize,
     this.onTooltipTap,
   }) : super(key: key);
 
-  String _formatTimeRange() {
-    final startDate = data.startDate;
-    final endDate = data.endDate;
+  @override
+  State<ChartTooltip> createState() => _ChartTooltipState();
+}
 
-    switch (viewType) {
+class _ChartTooltipState extends State<ChartTooltip> {
+  String _formatTimeRange() {
+    final startDate = widget.data.startDate;
+    final endDate = widget.data.endDate;
+
+    switch (widget.viewType) {
       case DateRangeType.day:
-        if (rangeData.length <= 1) {
+        if (widget.rangeData.length <= 1) {
           return DateFormat('MMM d, HH:mm').format(startDate);
         }
         return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
@@ -60,7 +63,7 @@ class ChartTooltip extends StatelessWidget {
   }
 
   Widget _buildMeasurementsList(BuildContext context) {
-    final measurements = data.originalMeasurements;
+    final measurements = widget.data.originalMeasurements;
     if (measurements.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -73,65 +76,6 @@ class ChartTooltip extends StatelessWidget {
                 color: Colors.grey[600],
               ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          constraints: const BoxConstraints(maxHeight: 120),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                ...measurements.map((measurement) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          DateFormat('EEE, MMM d, HH:mm')
-                              .format(measurement.date),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: style.systolicColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${measurement.systolic}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Text(
-                              ' / ',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: style.diastolicColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${measurement.diastolic}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -143,150 +87,134 @@ class ChartTooltip extends StatelessWidget {
         Text(
           'Summary',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).cardColor,
+                color: Colors.grey[600],
               ),
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: style.systolicColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Systolic',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            Text(
-              '${data.minSystolic} - ${data.maxSystolic}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
+        _buildSummaryRow(
+          context,
+          'Systolic',
+          widget.data.originalMeasurements.length > 1
+              ? '${widget.data.minSystolic} - ${widget.data.maxSystolic}'
+              : '${widget.data.minSystolic}',
+          widget.style.systolicColor,
         ),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: style.diastolicColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Diastolic',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            Text(
-              '${data.minDiastolic} - ${data.maxDiastolic}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
+        _buildSummaryRow(
+          context,
+          'Diastolic',
+          widget.data.originalMeasurements.length > 1
+              ? '${widget.data.minDiastolic} - ${widget.data.maxDiastolic}'
+              : '${widget.data.minDiastolic}',
+          widget.style.diastolicColor,
         ),
         const SizedBox(height: 8),
+        if (widget.data.originalMeasurements.length > 1)
+          _buildSummaryRow(
+            context,
+            'Average',
+            '${widget.data.avgSystolic.toStringAsFixed(1)}/${widget.data.avgDiastolic.toStringAsFixed(1)}',
+            null,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryRow(
+    BuildContext context,
+    String label,
+    String value,
+    Color? indicatorColor,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            if (indicatorColor != null) ...[
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: indicatorColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             Text(
-              'Average',
+              label,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            Text(
-              '${data.avgSystolic.toStringAsFixed(1)}/${data.avgDiastolic.toStringAsFixed(1)}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
           ],
+        ),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
         ),
       ],
     );
   }
 
   @override
+  void dispose() {
+    widget.onClose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const tooltipWidth = 280.0;
-    double top = position.dy - 20;
-    double left = position.dx - (tooltipWidth / 2);
-
-    // Adjust position to keep tooltip on screen
-    if (left < 12) left = 12;
-    if (left + tooltipWidth > screenSize.width - 12) {
-      left = screenSize.width - tooltipWidth - 12;
-    }
-    if (top < 12) top = position.dy + 20;
-
-    return Positioned(
-      left: left,
-      top: top,
-      child: Container(
-        width: tooltipWidth,
-        constraints: BoxConstraints(
-          maxHeight: screenSize.height * 0.6,
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _formatTimeRange(),
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+    return Card(
+      elevation: 8,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: GestureDetector(
+        onTap: () {
+          widget.onTooltipTap?.call(widget.data);
+          widget.onClose(); // Add this line to dismiss the tooltip
+        },
+        child: Container(
+          width: 200,
+          constraints: BoxConstraints(
+            maxHeight: widget.screenSize.height * 0.6,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _formatTimeRange(),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      onPressed: onClose,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _buildSummarySection(context),
-                _buildMeasurementsList(context),
-              ],
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 16),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onClose,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildSummarySection(context),
+                  if (widget.data.originalMeasurements.length > 1)
+                    _buildMeasurementsList(context),
+                ],
+              ),
             ),
           ),
         ),

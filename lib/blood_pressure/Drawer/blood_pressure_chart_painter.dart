@@ -41,29 +41,62 @@ class BloodPressureChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
-
-    _backgroundDrawer.drawBackground(canvas, chartArea);
-    if (config.showGrid) {
-      _gridDrawer.drawGrid(canvas, chartArea, yAxisValues, minValue, maxValue);
+    if (data.isEmpty) {
+      _drawEmptyState(canvas, size);
+      return;
     }
 
-    _labelDrawer.drawSideLabels(
-      canvas,
-      chartArea,
-      yAxisValues,
-      style.dateLabelStyle!,
-    );
-    _labelDrawer.drawBottomLabels(
-        canvas, chartArea, data, config.viewType, style);
+    // Draw background with animation
+    canvas.save();
+    canvas.clipRect(chartArea);
 
+    _backgroundDrawer.drawBackground(canvas, chartArea);
+
+    // Animate grid lines
+    if (config.showGrid) {
+      _gridDrawer.drawGrid(
+        canvas,
+        chartArea,
+        yAxisValues,
+        minValue,
+        maxValue,
+        animation.value,
+      );
+    }
+
+    // Draw reference ranges with animation
     _rangeDrawer.drawReferenceRanges(
       canvas,
       chartArea,
       style,
       minValue,
       maxValue,
+      animation.value,
     );
+
+    canvas.restore();
+
+    // Draw labels with animation
+    _labelDrawer.drawSideLabels(
+      canvas,
+      chartArea,
+      yAxisValues,
+      style.dateLabelStyle!,
+      animation.value,
+    );
+
+    _labelDrawer.drawBottomLabels(
+      canvas,
+      chartArea,
+      data,
+      config.viewType,
+      style,
+      animation.value,
+    );
+
+    // Draw data points with animation
+    canvas.save();
+    canvas.clipRect(chartArea);
 
     _dataPointDrawer.drawDataPoints(
       canvas,
@@ -75,6 +108,34 @@ class BloodPressureChartPainter extends CustomPainter {
       minValue,
       maxValue,
     );
+
+    canvas.restore();
+  }
+
+  void _drawEmptyState(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = style.gridLineColor.withOpacity(0.1 * animation.value)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // Draw animated grid pattern
+    const spacing = 20.0;
+    for (var x = 0.0; x < size.width; x += spacing) {
+      final progress = (x / size.width * animation.value).clamp(0.0, 1.0);
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height * progress),
+        paint,
+      );
+    }
+    for (var y = 0.0; y < size.height; y += spacing) {
+      final progress = (y / size.height * animation.value).clamp(0.0, 1.0);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width * progress, y),
+        paint,
+      );
+    }
   }
 
   @override
@@ -83,7 +144,7 @@ class BloodPressureChartPainter extends CustomPainter {
         style != oldDelegate.style ||
         config != oldDelegate.config ||
         selectedData != oldDelegate.selectedData ||
-        animation != oldDelegate.animation ||
+        animation.value != oldDelegate.animation.value ||
         chartArea != oldDelegate.chartArea ||
         yAxisValues != oldDelegate.yAxisValues ||
         minValue != oldDelegate.minValue ||

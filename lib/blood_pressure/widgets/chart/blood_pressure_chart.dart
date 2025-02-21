@@ -14,6 +14,7 @@ class BloodPressureGraph extends StatefulWidget {
   final BloodPressureChartStyle style;
   final ChartViewConfig initialConfig;
   final double height;
+  final List<(int min, int max)> referenceRanges;
   final Function(ProcessedBloodPressureData?)? onDataSelected;
   final Function(DateRangeType)? onViewTypeChanged;
   final Function(ProcessedBloodPressureData)? onDataPointTap;
@@ -26,6 +27,7 @@ class BloodPressureGraph extends StatefulWidget {
     this.style = const BloodPressureChartStyle(),
     required this.initialConfig,
     this.height = 300,
+    required this.referenceRanges,
     this.onDataSelected,
     this.onViewTypeChanged,
     this.onDataPointTap,
@@ -44,6 +46,7 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
   late final Animation<double> _animation;
 
   bool _isDisposed = false;
+  String _lastDataHash = '';
 
   @override
   void initState() {
@@ -58,7 +61,7 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
     );
 
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: _calculateAnimationDuration(),
       vsync: this,
     );
 
@@ -71,10 +74,32 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
     _animationController.forward();
   }
 
+  Duration _calculateAnimationDuration() {
+    final dataLength = widget.data.length;
+    const baseMs = 300;
+    const maxMs = 1000;
+
+    if (dataLength <= 50) return const Duration(milliseconds: baseMs);
+
+    final duration = baseMs + ((dataLength - 50) * 2);
+    return Duration(milliseconds: duration.clamp(baseMs, maxMs));
+  }
+
   void _handleControllerUpdate() {
     if (!_isDisposed && mounted) {
-      setState(() {});
+      final newDataHash = _calculateDataHash();
+      if (newDataHash != _lastDataHash) {
+        setState(() {
+          _lastDataHash = newDataHash;
+        });
+      }
     }
+  }
+
+  String _calculateDataHash() {
+    return widget.data.length.toString() +
+        widget.initialConfig.zoomLevel.toString() +
+        _controller.processedData.length.toString();
   }
 
   @override
@@ -83,6 +108,7 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
 
     if (!_listEquals(widget.data, oldWidget.data)) {
       _controller.updateData(widget.data);
+      _animationController.duration = _calculateAnimationDuration();
       _animationController.forward(from: 0.0);
     }
 
@@ -116,10 +142,11 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
     return BloodPressureChartContent(
       data: _controller.processedData,
       style: widget.style,
-      initialConfig: _controller.config,
+      config: _controller.config,
       height: widget.height,
       animation: _animation,
       selectedData: _controller.selectedData,
+      referenceRanges: widget.referenceRanges,
       onDataSelected: _handleDataSelected,
       onDataPointTap: widget.onDataPointTap,
       onTooltipTap: widget.onTooltipTap,

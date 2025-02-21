@@ -6,84 +6,130 @@ import '../styles/blood_pressure_chart_style.dart';
 class ChartReferenceRangeDrawer {
   final TextPainter _textPainter = TextPainter(
     textDirection: TextDirection.ltr,
-    textAlign: TextAlign.left,
+    textAlign: TextAlign.center,
   );
+  void drawReferenceRanges(
+    Canvas canvas,
+    Rect chartArea,
+    BloodPressureChartStyle style,
+    double minValue,
+    double maxValue,
+    double animationValue,
+  ) {
+    final rangePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = style.normalRangeColor.withOpacity(0.1 * animationValue);
 
-  void drawReferenceRanges(Canvas canvas, Rect chartArea,
-      BloodPressureChartStyle style, double minValue, double maxValue) {
-    final rangePaint = Paint()..style = PaintingStyle.fill;
-
-    final systolicRangeRect = Rect.fromLTRB(
-      chartArea.left,
-      getYPosition(BloodPressureRange.normalSystolicMax.toDouble(), chartArea,
-          minValue, maxValue),
-      chartArea.right,
-      getYPosition(BloodPressureRange.normalSystolicMin.toDouble(), chartArea,
-          minValue, maxValue),
+    // Draw systolic normal range
+    final systolicRangeRect = _calculateRangeRect(
+      chartArea,
+      BloodPressureRange.normalSystolicMin,
+      BloodPressureRange.normalSystolicMax,
+      minValue,
+      maxValue,
     );
 
-    rangePaint.color = style.normalRangeColor.withValues(alpha: 0.1);
-    canvas.drawRect(systolicRangeRect, rangePaint);
+    _drawAnimatedRange(canvas, systolicRangeRect, rangePaint, animationValue);
+    _drawRangeLabel(
+      canvas,
+      systolicRangeRect,
+      style.systolicLabels,
+      style.subHeaderStyle,
+      animationValue,
+    );
 
     // Draw diastolic normal range
-    final diastolicRangeRect = Rect.fromLTRB(
-      chartArea.left,
-      getYPosition(BloodPressureRange.normalDiastolicMax.toDouble(), chartArea,
-          minValue, maxValue),
-      chartArea.right,
-      getYPosition(BloodPressureRange.normalDiastolicMin.toDouble(), chartArea,
-          minValue, maxValue),
+    final diastolicRangeRect = _calculateRangeRect(
+      chartArea,
+      BloodPressureRange.normalDiastolicMin,
+      BloodPressureRange.normalDiastolicMax,
+      minValue,
+      maxValue,
     );
 
-    canvas.drawRect(diastolicRangeRect, rangePaint);
-
-    // Draw range labels
+    _drawAnimatedRange(canvas, diastolicRangeRect, rangePaint, animationValue);
     _drawRangeLabel(
-      canvas: canvas,
-      rect: systolicRangeRect,
-      text: style.systolicLabels,
-      style: style.subHeaderStyle,
-    );
-
-    _drawRangeLabel(
-      canvas: canvas,
-      rect: diastolicRangeRect,
-      text: style.diastolicLabels,
-      style: style.subHeaderStyle,
+      canvas,
+      diastolicRangeRect,
+      style.diastolicLabels,
+      style.subHeaderStyle,
+      animationValue,
     );
   }
 
-  void _drawRangeLabel({
-    required Canvas canvas,
-    required Rect rect,
-    required String text,
-    required TextStyle style,
-  }) {
+  Rect _calculateRangeRect(
+    Rect chartArea,
+    int minValue,
+    int maxValue,
+    double chartMinValue,
+    double chartMaxValue,
+  ) {
+    final minY = _getYPosition(
+        maxValue.toDouble(), chartArea, chartMinValue, chartMaxValue);
+    final maxY = _getYPosition(
+        minValue.toDouble(), chartArea, chartMinValue, chartMaxValue);
+
+    return Rect.fromLTRB(
+      chartArea.left,
+      minY,
+      chartArea.right,
+      maxY,
+    );
+  }
+
+  void _drawRangeLabel(
+    Canvas canvas,
+    Rect rangeRect,
+    String text,
+    TextStyle style,
+    double animationValue,
+  ) {
     _textPainter
-      ..text = TextSpan(text: text, style: style)
-      ..layout(maxWidth: rect.width - 20); // Account for padding
+      ..text = TextSpan(
+        text: text,
+        style: style.copyWith(
+          color: style.color?.withOpacity(animationValue),
+        ),
+      )
+      ..layout();
 
-    final backgroundPaint = Paint()..color = Colors.transparent;
+    final centerY = rangeRect.center.dy - (_textPainter.height / 2);
 
-    final textBgRect = Rect.fromLTWH(
-      rect.left + 10, // Left padding
-      rect.center.dy - _textPainter.height / 2,
-      _textPainter.width + 10, // Add some padding
+    // Draw background for better readability
+    final labelBackground = Rect.fromLTWH(
+      rangeRect.left + 10,
+      centerY,
+      _textPainter.width + 20,
       _textPainter.height,
     );
 
-    canvas.drawRect(textBgRect, backgroundPaint);
+    canvas.drawRect(
+      labelBackground,
+      Paint()..color = Colors.transparent,
+    );
 
     _textPainter.paint(
       canvas,
-      Offset(
-        rect.left + 15, // Left padding
-        rect.center.dy - _textPainter.height / 2, // Vertically centered
-      ),
+      Offset(rangeRect.left + 20, centerY),
     );
   }
 
-  double getYPosition(
+  void _drawAnimatedRange(
+    Canvas canvas,
+    Rect rect,
+    Paint paint,
+    double animationValue,
+  ) {
+    final center = rect.center;
+    final animatedRect = Rect.fromCenter(
+      center: center,
+      width: rect.width * animationValue,
+      height: rect.height,
+    );
+    canvas.drawRect(animatedRect, paint);
+  }
+
+  double _getYPosition(
       double value, Rect chartArea, double minValue, double maxValue) {
     return chartArea.bottom -
         ((value - minValue) / (maxValue - minValue)) * chartArea.height;

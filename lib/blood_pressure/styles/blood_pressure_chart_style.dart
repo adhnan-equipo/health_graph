@@ -50,7 +50,7 @@ class BloodPressureChartStyle {
     this.selectedTabColor = const Color(0xFF3182CE),
     this.unselectedTabColor = const Color(0xFF609FFF),
     this.gridLineColor = const Color(0xFFE2E8F0),
-    this.selectedHighlightColor = const Color(0x9DA1C8FF),
+    this.selectedHighlightColor = const Color(0x9DFFA1A1),
     this.normalRangeColor = const Color(0xFF4CAF50),
     this.elevatedRangeColor = const Color(0xFFFFA726),
     this.highRangeColor = const Color(0xFFF44336),
