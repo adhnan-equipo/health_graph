@@ -6,7 +6,7 @@ import '../../../models/date_range_type.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../styles/blood_pressure_chart_style.dart';
 
-class ChartTooltip extends StatefulWidget {
+class ChartTooltip extends StatelessWidget {
   final ProcessedBloodPressureData data;
   final List<ProcessedBloodPressureData> rangeData;
   final DateRangeType viewType;
@@ -26,18 +26,13 @@ class ChartTooltip extends StatefulWidget {
     this.onTooltipTap,
   }) : super(key: key);
 
-  @override
-  State<ChartTooltip> createState() => _ChartTooltipState();
-}
-
-class _ChartTooltipState extends State<ChartTooltip> {
   String _formatTimeRange() {
-    final startDate = widget.data.startDate;
-    final endDate = widget.data.endDate;
+    final startDate = data.startDate;
+    final endDate = data.endDate;
 
-    switch (widget.viewType) {
+    switch (viewType) {
       case DateRangeType.day:
-        if (widget.rangeData.length <= 1) {
+        if (rangeData.length <= 1) {
           return DateFormat('MMM d, HH:mm').format(startDate);
         }
         return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
@@ -63,7 +58,7 @@ class _ChartTooltipState extends State<ChartTooltip> {
   }
 
   Widget _buildMeasurementsList(BuildContext context) {
-    final measurements = widget.data.originalMeasurements;
+    final measurements = data.originalMeasurements;
     if (measurements.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -94,26 +89,26 @@ class _ChartTooltipState extends State<ChartTooltip> {
         _buildSummaryRow(
           context,
           'Systolic',
-          widget.data.originalMeasurements.length > 1
-              ? '${widget.data.minSystolic} - ${widget.data.maxSystolic}'
-              : '${widget.data.minSystolic}',
-          widget.style.systolicColor,
+          data.originalMeasurements.length > 1
+              ? '${data.minSystolic} - ${data.maxSystolic}'
+              : '${data.minSystolic}',
+          style.systolicColor,
         ),
         const SizedBox(height: 8),
         _buildSummaryRow(
           context,
           'Diastolic',
-          widget.data.originalMeasurements.length > 1
-              ? '${widget.data.minDiastolic} - ${widget.data.maxDiastolic}'
-              : '${widget.data.minDiastolic}',
-          widget.style.diastolicColor,
+          data.originalMeasurements.length > 1
+              ? '${data.minDiastolic} - ${data.maxDiastolic}'
+              : '${data.minDiastolic}',
+          style.diastolicColor,
         ),
         const SizedBox(height: 8),
-        if (widget.data.originalMeasurements.length > 1)
+        if (data.originalMeasurements.length > 1)
           _buildSummaryRow(
             context,
             'Average',
-            '${widget.data.avgSystolic.toStringAsFixed(1)}/${widget.data.avgDiastolic.toStringAsFixed(1)}',
+            '${data.avgSystolic.toStringAsFixed(1)}/${data.avgDiastolic.toStringAsFixed(1)}',
             null,
           ),
       ],
@@ -159,12 +154,6 @@ class _ChartTooltipState extends State<ChartTooltip> {
   }
 
   @override
-  void dispose() {
-    widget.onClose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 8,
@@ -174,13 +163,13 @@ class _ChartTooltipState extends State<ChartTooltip> {
       ),
       child: GestureDetector(
         onTap: () {
-          widget.onTooltipTap?.call(widget.data);
-          widget.onClose(); // Add this line to dismiss the tooltip
+          onTooltipTap?.call(data);
+          onClose(); // Add this line to dismiss the tooltip
         },
         child: Container(
           width: 200,
           constraints: BoxConstraints(
-            maxHeight: widget.screenSize.height * 0.6,
+            maxHeight: screenSize.height * 0.6,
           ),
           child: SingleChildScrollView(
             child: Padding(
@@ -205,13 +194,13 @@ class _ChartTooltipState extends State<ChartTooltip> {
                         icon: const Icon(Icons.close, size: 16),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        onPressed: widget.onClose,
+                        onPressed: onClose,
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   _buildSummarySection(context),
-                  if (widget.data.originalMeasurements.length > 1)
+                  if (data.originalMeasurements.length > 1)
                     _buildMeasurementsList(context),
                 ],
               ),
