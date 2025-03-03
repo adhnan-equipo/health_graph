@@ -3,12 +3,12 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../blood_pressure/Drawer/chart_background_drawer.dart';
-import '../../blood_pressure/Drawer/chart_grid_drawer.dart';
 import '../../blood_pressure/models/chart_view_config.dart';
 import '../models/processed_bmi_data.dart';
 import '../styles/bmi_chart_style.dart';
 import 'bmi_data_point_drawer.dart';
+import 'chart_background_drawer.dart';
+import 'chart_grid_drawer.dart';
 import 'chart_label_drawer.dart';
 
 class BMIChartPainter extends CustomPainter {
