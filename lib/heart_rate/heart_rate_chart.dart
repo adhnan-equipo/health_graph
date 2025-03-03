@@ -1,9 +1,7 @@
-// lib/heart_rate/widgets/heart_rate_chart.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../models/date_range_type.dart';
-import '../../utils/empty_state_overlay.dart';
+import '../models/date_range_type.dart';
 import 'models/heart_rate_chart_config.dart';
 import 'models/heart_rate_data.dart';
 import 'models/processed_heart_rate_data.dart';
@@ -44,6 +42,7 @@ class _HeartRateChartState extends State<HeartRateChart>
   late List<ProcessedHeartRateData> _processedData;
   final GlobalKey _chartKey = GlobalKey();
 
+  // Chart dimensions and data
   Size? _chartSize;
   Rect? _chartArea;
   List<int>? _yAxisValues;
@@ -51,25 +50,34 @@ class _HeartRateChartState extends State<HeartRateChart>
   double? _maxValue;
   OverlayEntry? _tooltipOverlay;
   ProcessedHeartRateData? _selectedData;
+  String _lastDataHash = '';
+  bool _isProcessing = false;
 
   @override
   void initState() {
     super.initState();
-    _processData();
+    // Initialize with empty list to avoid null errors
+    _processedData = [];
+    // Process data on next frame to avoid blocking the UI
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _processData();
+    });
     _initializeAnimation();
-    _scheduleInitialLayout();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Use RepaintBoundary to optimize rendering performance
     return RepaintBoundary(
       child: SizedBox(
         key: _chartKey,
         height: widget.height,
-        child: GestureDetector(
-          onTapDown: _handleTapDown,
-          child: _buildChartContent(),
-        ),
+        child: _isProcessing
+            ? const Center(child: CircularProgressIndicator())
+            : GestureDetector(
+                onTapDown: _handleTapDown,
+                child: _buildChartContent(),
+              ),
       ),
     );
   }
@@ -90,8 +98,7 @@ class _HeartRateChartState extends State<HeartRateChart>
           // Draw empty chart background
           CustomPaint(
             painter: HeartRateChartPainter(
-              data: const [],
-              // Empty list for background only
+              data: const [], // Empty list for painter to properly draw grid
               style: widget.style,
               animation: _animation,
               chartArea: _chartArea!,
@@ -104,10 +111,24 @@ class _HeartRateChartState extends State<HeartRateChart>
             ),
           ),
           // Show empty state overlay
-          const Center(
-            child: EmptyStateOverlay(
-              message: 'No heart rate data available',
-              icon: Icons.favorite_outline,
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.favorite_outline,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No heart rate data available',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
         ],
@@ -147,7 +168,9 @@ class _HeartRateChartState extends State<HeartRateChart>
     if (widget.config.viewType != oldWidget.config.viewType ||
         widget.config.startDate != oldWidget.config.startDate ||
         widget.config.endDate != oldWidget.config.endDate ||
-        widget.config.zoomLevel != oldWidget.config.zoomLevel) {
+        widget.config.zoomLevel != oldWidget.config.zoomLevel ||
+        widget.config.showRanges != oldWidget.config.showRanges ||
+        widget.config.showRestingRate != oldWidget.config.showRestingRate) {
       needsUpdate = true;
 
       // Notify parent if view type changed
@@ -158,8 +181,6 @@ class _HeartRateChartState extends State<HeartRateChart>
 
     if (needsUpdate) {
       _processData();
-      _initializeChartDimensions();
-      _animationController.forward(from: 0.0);
     }
   }
 
@@ -167,25 +188,9 @@ class _HeartRateChartState extends State<HeartRateChart>
     if (identical(a, b)) return true;
     if (a.length != b.length) return false;
 
-    // For performance, only check a sample of elements
-    if (a.length > 10) {
-      // Check first, middle, and last elements
-      if (a.first != b.first || a.last != b.last) {
-        return false;
-      }
-
-      final middleIndex = a.length ~/ 2;
-      if (a[middleIndex] != b[middleIndex]) {
-        return false;
-      }
-
-      return true;
-    }
-
-    // For smaller lists, check all elements
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
+    // For performance, we'll do a shallow check on a few key items
+    if (a.isEmpty || b.isEmpty) return a.isEmpty == b.isEmpty;
+    if (a.first != b.first || a.last != b.last) return false;
 
     return true;
   }
@@ -197,41 +202,83 @@ class _HeartRateChartState extends State<HeartRateChart>
     super.dispose();
   }
 
-  void _scheduleInitialLayout() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeChartDimensions();
-    });
+  Future<void> _scheduleInitialLayout() async {
+    // Wait until the layout is ready
+    await Future.delayed(Duration.zero);
+    _initializeChartDimensions();
   }
 
   void _initializeChartDimensions() {
+    if (!mounted) return;
+
     final RenderBox? renderBox =
         _chartKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox != null) {
       final size = renderBox.size;
+      final newDataHash = _calculateDataHash();
 
-      if (size != _chartSize) {
+      if (size != _chartSize || newDataHash != _lastDataHash) {
         setState(() {
           _chartSize = size;
           _chartArea = HeartRateChartCalculations.calculateChartArea(size);
-          final yAxisData = HeartRateChartCalculations.calculateYAxisRange(
-            _processedData,
-          );
-          _yAxisValues = yAxisData.$1;
-          _minValue = yAxisData.$2;
-          _maxValue = yAxisData.$3;
+
+          // Only calculate y-axis values if we have data
+          if (_processedData.isNotEmpty) {
+            final yAxisData = HeartRateChartCalculations.calculateYAxisRange(
+              _processedData,
+            );
+            _yAxisValues = yAxisData.$1;
+            _minValue = yAxisData.$2;
+            _maxValue = yAxisData.$3;
+          } else {
+            // Default values if no data
+            _yAxisValues = [40, 60, 80, 100, 120, 140, 160];
+            _minValue = 40.0;
+            _maxValue = 160.0;
+          }
+
+          _lastDataHash = newDataHash;
         });
       }
     }
   }
 
-  void _processData() {
-    _processedData = HeartRateDataProcessor.processData(
-      widget.data,
-      widget.config.viewType,
-      widget.config.startDate,
-      widget.config.endDate,
-      zoomLevel: widget.config.zoomLevel,
-    );
+  String _calculateDataHash() {
+    return '${_processedData.length}_${widget.config.zoomLevel}_${widget.config.showRanges}_${widget.config.showRestingRate}';
+  }
+
+  Future<void> _processData() async {
+    if (!mounted) return;
+
+    // Set processing flag to show loading indicator
+    setState(() {
+      _isProcessing = true;
+    });
+
+    // Process data in a separate isolate or at least on a separate frame
+    // to avoid blocking the UI thread
+    await Future.microtask(() {
+      _processedData = HeartRateDataProcessor.processData(
+        widget.data,
+        widget.config.viewType,
+        widget.config.startDate,
+        widget.config.endDate,
+        zoomLevel: widget.config.zoomLevel,
+      );
+    });
+
+    if (!mounted) return;
+
+    setState(() {
+      _isProcessing = false;
+    });
+
+    // Initialize chart dimensions after data is processed
+    _scheduleInitialLayout();
+
+    // Restart animation
+    _animationController.reset();
+    _animationController.forward();
   }
 
   void _initializeAnimation() {
@@ -273,6 +320,8 @@ class _HeartRateChartState extends State<HeartRateChart>
       localPosition,
       _chartArea!,
       _processedData,
+      _minValue!,
+      _maxValue!,
     );
 
     if (nearestPoint != null && !nearestPoint.isEmpty) {
@@ -306,7 +355,7 @@ class _HeartRateChartState extends State<HeartRateChart>
     if (renderBox == null) return;
 
     final screenSize = MediaQuery.of(context).size;
-    final tooltipSize = const Size(240, 300); // Approximate size
+    final tooltipSize = const Size(240, 200); // Approximate size
 
     final globalPosition = renderBox.localToGlobal(position);
     final tooltipPosition = HeartRateChartCalculations.calculateTooltipPosition(

@@ -1,4 +1,3 @@
-// lib/heart_rate/services/heart_rate_chart_calculations.dart
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -111,8 +110,8 @@ class HeartRateChartCalculations {
 
   /// Calculate chart area within the given size
   static Rect calculateChartArea(Size size) {
-    const leftPadding = 0.0; // Space for y-axis labels
-    const rightPadding = 20.0; // Right margin
+    const leftPadding = 25.0; // Space for y-axis labels
+    const rightPadding = 0.0; // Right margin
     const topPadding = 15.0; // Top margin
     const bottomPadding = 35.0; // Space for x-axis labels
 
@@ -129,6 +128,8 @@ class HeartRateChartCalculations {
     Offset position,
     Rect chartArea,
     List<ProcessedHeartRateData> data,
+    double minValue,
+    double maxValue,
   ) {
     if (data.isEmpty) return null;
 
@@ -140,8 +141,7 @@ class HeartRateChartCalculations {
       if (data[i].isEmpty) continue;
 
       final x = _getXPosition(i, data.length, chartArea);
-      final y = _getYPosition(data[i].avgValue, chartArea,
-          _getMinMaxFromData(data).$1, _getMinMaxFromData(data).$2);
+      final y = _getYPosition(data[i].avgValue, chartArea, minValue, maxValue);
 
       final distance = (position - Offset(x, y)).distance;
 
@@ -152,30 +152,6 @@ class HeartRateChartCalculations {
     }
 
     return nearestPoint;
-  }
-
-  /// Get min and max values from data
-  static (double, double) _getMinMaxFromData(
-      List<ProcessedHeartRateData> data) {
-    if (data.isEmpty) return (40.0, 160.0);
-
-    double min = double.infinity;
-    double max = 0;
-
-    for (var point in data) {
-      if (!point.isEmpty) {
-        if (point.minValue < min) min = point.minValue.toDouble();
-        if (point.maxValue > max) max = point.maxValue.toDouble();
-        if (point.restingRate != null && point.restingRate! < min) {
-          min = point.restingRate!.toDouble();
-        }
-      }
-    }
-
-    if (min == double.infinity) min = 40;
-    if (max == 0) max = 160;
-
-    return (min, max);
   }
 
   /// Calculate tooltip position to ensure it stays within screen bounds

@@ -1,4 +1,3 @@
-// lib/heart_rate/styles/heart_rate_chart_style.dart
 import 'package:flutter/material.dart';
 
 import '../models/heart_rate_range.dart';
@@ -106,7 +105,58 @@ class HeartRateChartStyle {
     this.restingLabel = 'Resting Rate',
   });
 
-  // Copy with constructor
+  // Get color for a specific heart rate zone
+  Color getZoneColor(double value) {
+    if (value < HeartRateRange.lowMax) return lowZoneColor;
+    if (value < HeartRateRange.normalMax) return normalZoneColor;
+    if (value < HeartRateRange.elevatedMax) return elevatedZoneColor;
+    return highZoneColor;
+  }
+
+  // Create a dark theme style
+  factory HeartRateChartStyle.dark() {
+    return const HeartRateChartStyle(
+      primaryColor: Color(0xFFF56565),
+      backgroundColor: Color(0xFF2D3748),
+      gridLineColor: Color(0xFF4A5568),
+      labelColor: Color(0xFFE2E8F0),
+      selectedColor: Color(0xFFF56565),
+      restingRateColor: Color(0xFFB794F4),
+      lowZoneColor: Color(0xFF63B3ED),
+      normalZoneColor: Color(0xFF68D391),
+      elevatedZoneColor: Color(0xFFF6AD55),
+      highZoneColor: Color(0xFFF56565),
+      labelStyle: TextStyle(
+        color: Color(0xFFE2E8F0),
+        fontSize: 12,
+        fontWeight: FontWeight.normal,
+      ),
+      headerStyle: TextStyle(
+        fontSize: 18,
+        color: Color(0xFFE2E8F0),
+        fontWeight: FontWeight.w600,
+      ),
+      subHeaderStyle: TextStyle(
+        fontSize: 14,
+        color: Color(0xFFE2E8F0),
+        fontWeight: FontWeight.w500,
+      ),
+      tooltipTextStyle: TextStyle(
+        fontSize: 12,
+        color: Color(0xFFE2E8F0),
+      ),
+      areaGradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0x40F56565),
+          Color(0x05F56565),
+        ],
+      ),
+    );
+  }
+
+  // Copy with constructor for easy customization
   HeartRateChartStyle copyWith({
     Color? primaryColor,
     Color? backgroundColor,
@@ -168,14 +218,4 @@ class HeartRateChartStyle {
       restingLabel: restingLabel ?? this.restingLabel,
     );
   }
-
-  // Get color for a specific heart rate zone
-  Color getZoneColor(double value) {
-    if (value < HeartRateRange.lowMax) return lowZoneColor;
-    if (value < HeartRateRange.normalMax) return normalZoneColor;
-    if (value < HeartRateRange.elevatedMax) return elevatedZoneColor;
-    return highZoneColor;
-  }
 }
-
-// Import the range class for zone calculations

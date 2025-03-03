@@ -1,5 +1,4 @@
-// lib/heart_rate/services/heart_rate_data_processor.dart
-import 'dart:math';
+import 'dart:math' as math;
 
 import '../../models/date_range_type.dart';
 import '../models/heart_rate_data.dart';
@@ -7,7 +6,7 @@ import '../models/processed_heart_rate_data.dart';
 
 class HeartRateDataProcessor {
   static const int maxDataPoints = 24;
-  static const int minDataPointsBeforeAggregation = 10;
+  static const int minDataPointsBeforeAggregation = 8;
 
   /// Process heart rate data based on date range type and zoom level
   static List<ProcessedHeartRateData> processData(
@@ -21,11 +20,13 @@ class HeartRateDataProcessor {
       return _generateEmptyDataPoints(dateRangeType, startDate, endDate);
     }
 
+    // Create a copy to avoid modifying the original list
+    final sortedData = List<HeartRateData>.from(data);
     // Sort by date
-    data.sort((a, b) => a.date.compareTo(b.date));
+    sortedData.sort((a, b) => a.date.compareTo(b.date));
 
     // Group data by appropriate time intervals
-    final groupedData = _groupDataByDate(data, dateRangeType);
+    final groupedData = _groupDataByDate(sortedData, dateRangeType);
     List<ProcessedHeartRateData> processedData = [];
 
     // Generate data points for the entire date range
@@ -88,6 +89,11 @@ class HeartRateDataProcessor {
     // Extract heart rate values
     final values = measurements.map((m) => m.value).toList();
 
+    // Skip if no valid values
+    if (values.isEmpty) {
+      return ProcessedHeartRateData.empty(date);
+    }
+
     // Extract min/max values if available
     final minValues = measurements
         .where((m) => m.minValue != null)
@@ -111,28 +117,40 @@ class HeartRateDataProcessor {
 
     if (minValues.isNotEmpty && maxValues.isNotEmpty) {
       // If we have explicit min/max values
-      minValue = minValues.reduce(min);
-      maxValue = maxValues.reduce(max);
+      minValue = minValues.reduce(math.min);
+      maxValue = maxValues.reduce(math.max);
     } else {
       // Otherwise use the recorded values
-      minValue = values.reduce(min);
-      maxValue = values.reduce(max);
+      minValue = values.reduce(math.min);
+      maxValue = values.reduce(math.max);
     }
+
+    // Calculate average value
+    final avgValue = values.reduce((a, b) => a + b) / values.length;
+
+    // Calculate standard deviation
+    final stdDev = _calculateStdDev(values, avgValue);
+
+    // Calculate HRV (Heart Rate Variability) from RR intervals if possible
+    final hrv = _calculateHRV(measurements);
+
+    // Determine resting heart rate (lowest value or explicit resting rate)
+    final restingRate = restingRates.isNotEmpty
+        ? restingRates.reduce(math.min)
+        : (values.isNotEmpty ? values.reduce(math.min) : null);
 
     return ProcessedHeartRateData(
       startDate: measurements.first.date,
       endDate: measurements.last.date,
       minValue: minValue,
       maxValue: maxValue,
-      avgValue: values.reduce((a, b) => a + b) / values.length,
+      avgValue: avgValue,
       dataPointCount: measurements.length,
-      stdDev: _calculateStdDev(values),
+      stdDev: stdDev,
       isRangeData: measurements.length > 1 || minValues.isNotEmpty,
       originalMeasurements: measurements,
-      hrv: _calculateHRV(measurements),
-      restingRate: restingRates.isEmpty
-          ? null
-          : restingRates.reduce((a, b) => a < b ? a : b),
+      hrv: hrv,
+      restingRate: restingRate,
     );
   }
 
@@ -163,42 +181,49 @@ class HeartRateDataProcessor {
   }
 
   /// Calculate standard deviation of a set of values
-  static double _calculateStdDev(List<int> values) {
+  static double _calculateStdDev(List<int> values, double mean) {
     if (values.length <= 1) return 0;
 
-    final mean = values.reduce((a, b) => a + b) / values.length;
     final sumSquaredDiffs = values.fold(0.0, (sum, value) {
       final diff = value - mean;
       return sum + (diff * diff);
     });
 
-    return sqrt(sumSquaredDiffs / (values.length - 1));
+    return math.sqrt(sumSquaredDiffs / (values.length - 1));
   }
 
   /// Approximate HRV using adjacent measurements
-  static double _calculateHRV(List<HeartRateData> measurements) {
-    if (measurements.length <= 1) return 0;
+  static double? _calculateHRV(List<HeartRateData> measurements) {
+    if (measurements.length <= 1) return null;
+
+    // Sort by date to ensure correct sequence
+    measurements.sort((a, b) => a.date.compareTo(b.date));
 
     final rmssd = <double>[];
+    double sumSquaredDiffs = 0.0;
+    int validPairs = 0;
 
     for (var i = 1; i < measurements.length; i++) {
       final current = measurements[i];
       final previous = measurements[i - 1];
 
-      // Calculate approximate R-R intervals in ms
+      // Skip if no valid heart rate
+      if (current.value <= 0 || previous.value <= 0) continue;
+
+      // Calculate approximate R-R intervals in ms (60000 ms / bpm)
       final currentRR = 60000 / current.value;
       final previousRR = 60000 / previous.value;
 
-      // Square the difference
+      // Calculate squared difference
       final diff = currentRR - previousRR;
-      rmssd.add(diff * diff);
+      sumSquaredDiffs += diff * diff;
+      validPairs++;
     }
 
-    if (rmssd.isEmpty) return 0;
+    if (validPairs == 0) return null;
 
     // Root mean square of successive differences
-    final meanSquare = rmssd.reduce((a, b) => a + b) / rmssd.length;
-    return sqrt(meanSquare);
+    return math.sqrt(sumSquaredDiffs / validPairs);
   }
 
   /// Generate empty data points for the given date range
@@ -210,10 +235,16 @@ class HeartRateDataProcessor {
     final emptyPoints = <ProcessedHeartRateData>[];
     var currentDate = startDate;
 
-    while (currentDate.isBefore(endDate) ||
-        currentDate.isAtSameMomentAs(endDate)) {
+    // Limit the maximum number of points to prevent excessive memory usage
+    int pointCount = 0;
+    final maxEmptyPoints = 100; // Reasonable limit for empty points
+
+    while ((currentDate.isBefore(endDate) ||
+            currentDate.isAtSameMomentAs(endDate)) &&
+        pointCount < maxEmptyPoints) {
       emptyPoints.add(ProcessedHeartRateData.empty(currentDate));
       currentDate = _getNextDate(currentDate, dateRangeType);
+      pointCount++;
     }
 
     return emptyPoints;
@@ -228,7 +259,7 @@ class HeartRateDataProcessor {
     final result = <ProcessedHeartRateData>[];
 
     for (var i = 0; i < data.length; i += chunkSize) {
-      final end = min(i + chunkSize, data.length);
+      final end = math.min(i + chunkSize, data.length);
       final chunk = data.sublist(i, end);
 
       // Skip if all data points in chunk are empty
@@ -247,7 +278,12 @@ class HeartRateDataProcessor {
           .toList()
         ..sort((a, b) => a.date.compareTo(b.date));
 
-      result.add(_aggregateChunk(validData, allMeasurements));
+      // Limit the number of measurements to prevent memory issues
+      final limitedMeasurements = allMeasurements.length > 100
+          ? allMeasurements.sublist(0, 100)
+          : allMeasurements;
+
+      result.add(_aggregateChunk(validData, limitedMeasurements));
     }
 
     return result;
@@ -259,8 +295,8 @@ class HeartRateDataProcessor {
     List<HeartRateData> allMeasurements,
   ) {
     // Calculate min, max, and average values
-    final minValue = chunk.map((d) => d.minValue).reduce(min);
-    final maxValue = chunk.map((d) => d.maxValue).reduce(max);
+    final minValue = chunk.map((d) => d.minValue).reduce(math.min);
+    final maxValue = chunk.map((d) => d.maxValue).reduce(math.max);
 
     // Weighted average for more accurate representation
     final totalWeight = chunk.fold(0, (sum, d) => sum + d.dataPointCount);
@@ -280,6 +316,10 @@ class HeartRateDataProcessor {
     final hrvValues =
         chunk.where((d) => d.hrv != null).map((d) => d.hrv!).toList();
 
+    // Calculate combined standard deviation
+    final stdDev = _combinedStdDev(
+        chunk.map((d) => (d.stdDev, d.avgValue, d.dataPointCount)).toList());
+
     return ProcessedHeartRateData(
       startDate: chunk.first.startDate,
       endDate: chunk.last.endDate,
@@ -287,14 +327,13 @@ class HeartRateDataProcessor {
       maxValue: maxValue,
       avgValue: avgValue,
       dataPointCount: totalWeight,
-      stdDev: _combinedStdDev(
-          chunk.map((d) => (d.stdDev, d.avgValue, d.dataPointCount)).toList()),
+      stdDev: stdDev,
       isRangeData: true,
       originalMeasurements: allMeasurements,
       hrv: hrvValues.isEmpty
           ? null
           : hrvValues.reduce((a, b) => a + b) / hrvValues.length,
-      restingRate: restingRates.isEmpty ? null : restingRates.reduce(min),
+      restingRate: restingRates.isEmpty ? null : restingRates.reduce(math.min),
     );
   }
 
@@ -313,24 +352,11 @@ class HeartRateDataProcessor {
     // Calculate combined variance
     final combinedVariance = values.fold(0.0, (sum, item) {
           final variance = item.$1 * item.$1;
-          final meanDiffSquared = pow(item.$2 - combinedMean, 2);
+          final meanDiffSquared = math.pow(item.$2 - combinedMean, 2);
           return sum + (variance + meanDiffSquared) * item.$3;
         }) /
         totalCount;
 
-    return sqrt(combinedVariance);
-  }
-
-  /// Calculate square root manually for devices without math lib
-  static double sqrt(double value) {
-    if (value <= 0) return 0;
-    double x = value;
-    double y = 1;
-    double e = 0.000001;
-    while ((x - y) > e) {
-      x = (x + y) / 2;
-      y = value / x;
-    }
-    return x;
+    return math.sqrt(combinedVariance);
   }
 }

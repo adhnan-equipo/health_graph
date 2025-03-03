@@ -1,4 +1,3 @@
-// lib/heart_rate/widgets/heart_rate_tooltip.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
