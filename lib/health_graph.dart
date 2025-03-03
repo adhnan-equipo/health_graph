@@ -15,7 +15,6 @@ export '/blood_pressure/styles/blood_pressure_chart_style.dart';
 export '/blood_pressure/utils/data_processor.dart';
 export '/blood_pressure/widgets/chart/blood_pressure_chart.dart';
 export '/blood_pressure/widgets/chart/blood_pressure_chart_content.dart';
-export '/blood_pressure/widgets/chart/blood_pressure_summary.dart';
 export '/blood_pressure/widgets/chart/chart_tooltip.dart';
 export '/bmi/controllers/bmi_chart_controller.dart';
 export '/bmi/drawer/bmi_chart_painter.dart';

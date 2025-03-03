@@ -141,10 +141,7 @@ class ChartCalculations {
     return chartArea.left + edgePadding + (index * pointSpacing);
   }
 
-  /// Cache for hit testing to improve performance
-  static final Map<String, Map<int, double>> _hitTestCache = {};
-  
-  /// More efficient implementation to find the data point closest to the given position
+  /// Finds the data point closest to the given position
   static ProcessedBloodPressureData? findDataPoint(
     Offset position,
     Rect chartArea,
@@ -153,52 +150,23 @@ class ChartCalculations {
     if (data.isEmpty || !_isWithinChartArea(position, chartArea)) {
       return null;
     }
-    
-    // Create a unique key for this chart configuration
-    final cacheKey = '${chartArea.width.round()}_${data.length}';
-    
-    // Initialize the cache for this configuration if needed
-    final positionCache = _hitTestCache.putIfAbsent(cacheKey, () => {});
-    
-    // Fast approximate calculation for better performance
-    final dataLength = data.length;
-    final relativeX = position.dx - chartArea.left;
-    final effectiveWidth = chartArea.width;
-    
-    // Calculate the approximate index based on position
-    final approxIndex = ((relativeX / effectiveWidth) * (dataLength - 1)).round()
-        .clamp(0, dataLength - 1);
-    
-    // Search around the approximate index
-    ProcessedBloodPressureData? closestPoint;
-    double minDistance = _hitTestThreshold;
-    
-    // Define a reasonable search range (we don't need to search all points)
-    final searchRadius = min(10, dataLength ~/ 4); // Adaptive search radius
-    final startIndex = max(0, approxIndex - searchRadius);
-    final endIndex = min(dataLength - 1, approxIndex + searchRadius);
-    
-    for (int i = startIndex; i <= endIndex; i++) {
-      final point = data[i];
-      if (point.isEmpty) continue;
-      
-      // Get or calculate the x position for this point
-      double pointX;
-      if (positionCache.containsKey(i)) {
-        pointX = positionCache[i]!;
-      } else {
-        pointX = calculateXPosition(i, dataLength, chartArea);
-        positionCache[i] = pointX; // Cache for future use
-      }
-      
-      final distance = (position.dx - pointX).abs();
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestPoint = point;
+
+    final xStep = chartArea.width / (data.length - 1);
+    final index = _findClosestIndex(
+      position.dx,
+      chartArea.left,
+      xStep,
+      data.length,
+    );
+
+    if (index >= 0 && index < data.length) {
+      final pointX = chartArea.left + (index * xStep);
+      if ((position.dx - pointX).abs() <= _hitTestThreshold) {
+        return data[index];
       }
     }
-    
-    return closestPoint;
+
+    return null;
   }
 
   /// Checks if a point is within the chart area
