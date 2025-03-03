@@ -43,8 +43,6 @@ class _BMIGraphState extends State<BMIGraph>
   late final AnimationController _animationController;
   late final Animation<double> _animation;
 
-  bool _isDisposed = false;
-
   @override
   void initState() {
     super.initState();
@@ -58,7 +56,7 @@ class _BMIGraphState extends State<BMIGraph>
     );
 
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: _calculateAnimationDuration(),
       vsync: this,
     );
 
@@ -71,8 +69,19 @@ class _BMIGraphState extends State<BMIGraph>
     _animationController.forward();
   }
 
+  Duration _calculateAnimationDuration() {
+    final dataLength = widget.data.length;
+    const baseMs = 300;
+    const maxMs = 800;
+
+    if (dataLength <= 20) return const Duration(milliseconds: baseMs);
+
+    final duration = baseMs + ((dataLength - 20) * 2);
+    return Duration(milliseconds: duration.clamp(baseMs, maxMs));
+  }
+
   void _handleControllerUpdate() {
-    if (!_isDisposed && mounted) {
+    if (mounted) {
       setState(() {});
     }
   }
@@ -94,27 +103,42 @@ class _BMIGraphState extends State<BMIGraph>
   bool _listEquals<T>(List<T> a, List<T> b) {
     if (identical(a, b)) return true;
     if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
+
+    // For performance, only check first, last and sample middle elements
+    if (a.isNotEmpty && b.isNotEmpty) {
+      if (a.first != b.first || a.last != b.last) {
+        return false;
+      }
+
+      // Check a middle element if list is big enough
+      if (a.length > 10) {
+        final middleIndex = a.length ~/ 2;
+        if (a[middleIndex] != b[middleIndex]) {
+          return false;
+        }
+      }
     }
+
     return true;
   }
 
-// In BMIGraph widget
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: Container(
-        height: widget.height, // Use the specified height
-        constraints: BoxConstraints(
-          minHeight: widget.height,
-          maxHeight: widget.height,
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) => BMIChartContent(
+      child: GestureDetector(
+        // Add zoom gesture support
+        onScaleStart: _controller.handleScaleStart,
+        onScaleUpdate: _controller.handleScaleUpdate,
+        child: Container(
+          height: widget.height,
+          constraints: BoxConstraints(
+            minHeight: widget.height,
+            maxHeight: widget.height,
+          ),
+          child: BMIChartContent(
             data: _controller.processedData,
             style: widget.style,
-            initialConfig: _controller.config,
+            config: _controller.config,
             height: widget.height,
             animation: _animation,
             selectedData: _controller.selectedData,
@@ -129,15 +153,12 @@ class _BMIGraphState extends State<BMIGraph>
   }
 
   void _handleDataSelected(ProcessedBMIData? data) {
-    if (!_isDisposed) {
-      _controller.selectData(data);
-      widget.onDataSelected?.call(data);
-    }
+    _controller.selectData(data);
+    widget.onDataSelected?.call(data);
   }
 
   @override
   void dispose() {
-    _isDisposed = true;
     _controller.removeListener(_handleControllerUpdate);
     _controller.dispose();
     _animationController.dispose();

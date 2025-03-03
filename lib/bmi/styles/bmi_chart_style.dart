@@ -1,3 +1,4 @@
+// lib/bmi/styles/bmi_chart_style.dart
 import 'package:flutter/material.dart';
 
 import '../models/bmi_category.dart';
@@ -19,6 +20,15 @@ class BMIChartStyle {
   final Color obeseRangeColor;
   final Color trendLineColor;
   final LinearGradient chartGradient;
+  final String? underweightLabel;
+  final String? normalLabel;
+  final String? overweightLabel;
+  final String? obeseLabel;
+  final String? measurementsLabel;
+  final String? summaryLabel;
+  final String? averageLabel;
+  final String? rangeLabel;
+  final bool emphasizeLatestValue;
 
   const BMIChartStyle({
     this.lineColor = const Color(0xFF3182CE),
@@ -41,6 +51,15 @@ class BMIChartStyle {
       end: Alignment.bottomCenter,
       colors: [Color(0xFF3182CE), Color(0x333182CE)],
     ),
+    this.underweightLabel = 'Underweight',
+    this.normalLabel = 'Normal',
+    this.overweightLabel = 'Healthy',
+    this.obeseLabel = 'Obese',
+    this.measurementsLabel = 'Measurements',
+    this.summaryLabel = 'Summary',
+    this.averageLabel = 'Average BMI',
+    this.rangeLabel = 'Range',
+    this.emphasizeLatestValue = true,
   });
 
   Color getCategoryColor(BMICategory category) {
@@ -53,6 +72,19 @@ class BMIChartStyle {
         return overweightRangeColor;
       case BMICategory.obese:
         return obeseRangeColor;
+    }
+  }
+
+  String getCategoryLabel(BMICategory category) {
+    switch (category) {
+      case BMICategory.underweight:
+        return underweightLabel ?? 'Underweight';
+      case BMICategory.normal:
+        return normalLabel ?? 'Healthy';
+      case BMICategory.overweight:
+        return overweightLabel ?? 'Overweight';
+      case BMICategory.obese:
+        return obeseLabel ?? 'Obese';
     }
   }
 

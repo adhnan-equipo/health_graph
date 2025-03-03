@@ -6,10 +6,9 @@ import '../../models/date_range_type.dart';
 import '../models/processed_bmi_data.dart';
 import '../styles/bmi_chart_style.dart';
 
-class BMITooltip extends StatelessWidget {
+class BMITooltip extends StatefulWidget {
   final ProcessedBMIData data;
   final DateRangeType viewType;
-  final Offset position;
   final VoidCallback onClose;
   final BMIChartStyle style;
   final Size screenSize;
@@ -19,18 +18,27 @@ class BMITooltip extends StatelessWidget {
     Key? key,
     required this.data,
     required this.viewType,
-    required this.position,
     required this.onClose,
     required this.style,
     required this.screenSize,
     this.onTooltipTap,
   }) : super(key: key);
 
-  String _formatTimeRange() {
-    final startDate = data.startDate;
-    final endDate = data.endDate;
+  @override
+  State<BMITooltip> createState() => _BMITooltipState();
+}
 
-    switch (viewType) {
+class _BMITooltipState extends State<BMITooltip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+
+  String _formatTimeRange() {
+    final startDate = widget.data.startDate;
+    final endDate = widget.data.endDate;
+
+    switch (widget.viewType) {
       case DateRangeType.day:
         if (startDate == endDate) {
           return DateFormat('MMM d, HH:mm').format(startDate);
@@ -57,159 +65,330 @@ class BMITooltip extends StatelessWidget {
     }
   }
 
-  Widget _buildMeasurementsList(BuildContext context) {
-    final measurements = data.originalMeasurements;
+  Widget _buildLatestMeasurement() {
+    final measurements = widget.data.originalMeasurements;
     if (measurements.isEmpty) return const SizedBox.shrink();
+
+    // Get the latest measurement
+    final latestMeasurement = measurements.last;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 16),
-        Text(
-          'Measurements (${measurements.length})',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+
+        // Show latest heading
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Latest Reading',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            Text(
+              DateFormat('MMM d, HH:mm').format(latestMeasurement.date),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Container(
-          constraints: const BoxConstraints(maxHeight: 120),
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: measurements.length,
-            itemBuilder: (context, index) {
-              final measurement = measurements[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      DateFormat('HH:mm').format(measurement.date),
-                      style: Theme.of(context).textTheme.bodySmall,
+
+        const SizedBox(height: 20),
+
+        // BMI value with big display
+        Center(
+          child: Column(
+            children: [
+              Text(
+                latestMeasurement.bmi.toStringAsFixed(1),
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: _getCategoryColor(latestMeasurement.bmi),
                     ),
-                    Text(
-                      'BMI: ${measurement.bmi.toStringAsFixed(1)} (${measurement.weight.toStringAsFixed(1)} kg)',
-                      style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _getCategoryText(latestMeasurement.bmi),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: _getCategoryColor(latestMeasurement.bmi),
                     ),
-                  ],
-                ),
-              );
-            },
+              ),
+            ],
           ),
         ),
+
+        const SizedBox(height: 16),
+
+        // Weight and height details
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildMeasurementDetail(
+              'Weight',
+              '${latestMeasurement.weight.toStringAsFixed(1)} kg',
+              Icons.monitor_weight_outlined,
+            ),
+            _buildMeasurementDetail(
+              'Height',
+              '${latestMeasurement.height.toStringAsFixed(1)} cm',
+              Icons.height_outlined,
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _buildSummarySection(BuildContext context) {
+  Widget _buildMeasurementDetail(String label, String value, IconData icon) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Icon(
+          icon,
+          size: 24,
+          color: Colors.grey[600],
+        ),
+        const SizedBox(height: 4),
         Text(
-          'Summary',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
+          value,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
         ),
-        const SizedBox(height: 12),
-        _buildSummaryRow(
-            context, 'Average BMI', data.avgBMI.toStringAsFixed(1)),
-        if (data.dataPointCount > 1) ...[
-          const SizedBox(height: 8),
-          _buildSummaryRow(context, 'Range',
-              '${data.minBMI.toStringAsFixed(1)} - ${data.maxBMI.toStringAsFixed(1)}'),
-          const SizedBox(height: 8),
-          _buildSummaryRow(
-              context, 'Standard Deviation', data.stdDev.toStringAsFixed(2)),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildSummaryRow(BuildContext context, String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall,
         ),
+      ],
+    );
+  }
+
+  Color _getCategoryColor(double bmi) {
+    if (bmi < 18.5) return widget.style.underweightRangeColor;
+    if (bmi < 25.0) return widget.style.normalRangeColor;
+    if (bmi < 30.0) return widget.style.overweightRangeColor;
+    return widget.style.obeseRangeColor;
+  }
+
+  String _getCategoryText(double bmi) {
+    if (bmi < 18.5) return widget.style.underweightLabel ?? 'Underweight';
+    if (bmi < 25.0) return widget.style.normalLabel ?? 'Normal';
+    if (bmi < 30.0) return widget.style.overweightLabel ?? 'Overweight';
+    return widget.style.obeseLabel ?? 'Obese';
+  }
+
+  Widget _buildHistoryInfo() {
+    // Show a brief history summary if there are multiple readings
+    if (widget.data.dataPointCount <= 1) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 24),
         Text(
-          value,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          widget.style.summaryLabel ?? 'History',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildHistoryStat(
+              'Readings',
+              widget.data.dataPointCount.toString(),
+              Icons.analytics_outlined,
+            ),
+            _buildHistoryStat(
+              'Average',
+              widget.data.avgBMI.toStringAsFixed(1),
+              Icons.show_chart,
+              _getCategoryColor(widget.data.avgBMI),
+            ),
+            _buildHistoryStat(
+              'Change',
+              _calculateChange(),
+              _getChangeIcon(),
+              _getChangeColor(),
+            ),
+          ],
         ),
       ],
     );
   }
 
+  Widget _buildHistoryStat(String label, String value, IconData icon,
+      [Color? color]) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: color ?? Colors.grey[700],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  String _calculateChange() {
+    if (widget.data.originalMeasurements.length < 2) return "0.0";
+
+    final latest = widget.data.originalMeasurements.last.bmi;
+    final first = widget.data.originalMeasurements.first.bmi;
+    final change = latest - first;
+
+    final sign = change > 0 ? '+' : '';
+    return '$sign${change.toStringAsFixed(1)}';
+  }
+
+  IconData _getChangeIcon() {
+    if (widget.data.originalMeasurements.length < 2)
+      return Icons.horizontal_rule;
+
+    final latest = widget.data.originalMeasurements.last.bmi;
+    final first = widget.data.originalMeasurements.first.bmi;
+    final change = latest - first;
+
+    if (change > 0.5) return Icons.arrow_upward;
+    if (change < -0.5) return Icons.arrow_downward;
+    return Icons.horizontal_rule;
+  }
+
+  Color _getChangeColor() {
+    if (widget.data.originalMeasurements.length < 2) return Colors.grey;
+
+    final latest = widget.data.originalMeasurements.last.bmi;
+    final first = widget.data.originalMeasurements.first.bmi;
+    final change = latest - first;
+
+    // Determine if change is good based on BMI category
+    if (first < 18.5) {
+      // Underweight: Gaining is good
+      return change > 0 ? Colors.green : Colors.red;
+    } else if (first > 25.0) {
+      // Overweight/Obese: Losing is good
+      return change < 0 ? Colors.green : Colors.red;
+    } else {
+      // Normal: Staying stable is good
+      return change.abs() < 0.5
+          ? Colors.green
+          : (change > 0 ? Colors.orange : Colors.blue);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutBack,
+      ),
+    );
+
+    _animationController.forward();
+  }
+
+  Future<void> dismiss() async {
+    await _animationController.reverse();
+    widget.onClose();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    const tooltipWidth = 280.0;
-    double top = position.dy - 20;
-    double left = position.dx - (tooltipWidth / 2);
-
-    // Adjust position to keep tooltip on screen
-    if (left < 12) left = 12;
-    if (left + tooltipWidth > screenSize.width - 12) {
-      left = screenSize.width - tooltipWidth - 12;
-    }
-    if (top < 12) top = position.dy + 20;
-
-    return Positioned(
-      left: left,
-      top: top,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: tooltipWidth,
-          constraints: BoxConstraints(
-            maxHeight: screenSize.height * 0.6,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _formatTimeRange(),
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) => Opacity(
+        opacity: _fadeAnimation.value,
+        child: Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Card(
+            elevation: 8 * _fadeAnimation.value,
+            shadowColor: Colors.black26,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: GestureDetector(
+              onTap: () {
+                widget.onTooltipTap?.call(widget.data);
+                dismiss();
+              },
+              child: Container(
+                width: 280,
+                constraints: BoxConstraints(
+                  maxHeight: widget.screenSize.height * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _formatTimeRange(),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 18),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: dismiss,
+                            ),
+                          ],
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 16),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: onClose,
-                      ),
-                    ],
+                        // Show latest measurement prominently
+                        _buildLatestMeasurement(),
+                        // Show history information
+                        _buildHistoryInfo(),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  _buildSummarySection(context),
-                  _buildMeasurementsList(context),
-                ],
+                ),
               ),
             ),
           ),

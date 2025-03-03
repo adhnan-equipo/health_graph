@@ -1,9 +1,12 @@
 // lib/bmi/drawer/chart_label_drawer.dart
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../models/date_range_type.dart';
 import '../../utils/date_formatter.dart';
 import '../models/processed_bmi_data.dart';
+import '../styles/bmi_chart_style.dart';
 
 class ChartLabelDrawer {
   final TextPainter _textPainter = TextPainter(
@@ -11,36 +14,36 @@ class ChartLabelDrawer {
     textAlign: TextAlign.center,
   );
 
-  void drawSideLabels(Canvas canvas, Rect chartArea, List<double> yAxisValues,
-      TextStyle textStyle) {
+  void drawSideLabels(
+    Canvas canvas,
+    Rect chartArea,
+    List<double> yAxisValues,
+    TextStyle textStyle,
+    double animationValue,
+  ) {
     for (var value in yAxisValues) {
       final y = chartArea.bottom -
           ((value - yAxisValues.first) /
                   (yAxisValues.last - yAxisValues.first)) *
               chartArea.height;
 
-      _textPainter.text = TextSpan(
+      _textPainter
+        ..text = TextSpan(
           text: value.toStringAsFixed(1), // Format BMI values with 1 decimal
-          style: textStyle);
-      _textPainter.layout();
+          style: textStyle.copyWith(
+            color: textStyle.color?.withOpacity(animationValue),
+          ),
+        )
+        ..layout();
 
-      // Draw background
-      canvas.drawRect(
-        Rect.fromLTWH(
-          0,
-          y - _textPainter.height / 2,
-          chartArea.left - 8,
-          _textPainter.height,
-        ),
-        Paint()..color = Colors.transparent,
+      // Calculate position with animation
+      final xOffset = chartArea.left - _textPainter.width - 8;
+      final animatedXOffset = Offset(
+        lerpDouble(chartArea.left, xOffset, animationValue)!,
+        y - _textPainter.height / 2,
       );
 
-      // Draw text
-      _textPainter.paint(
-        canvas,
-        Offset(chartArea.left - _textPainter.width - 8,
-            y - _textPainter.height / 2),
-      );
+      _textPainter.paint(canvas, animatedXOffset);
     }
   }
 
@@ -49,11 +52,13 @@ class ChartLabelDrawer {
     Rect chartArea,
     List<ProcessedBMIData> data,
     DateRangeType viewType,
+    BMIChartStyle style,
+    double animationValue,
   ) {
     if (data.isEmpty) return;
 
-    final xStep = chartArea.width / (data.length - 1);
     final labelStep = _calculateLabelStep(data.length, viewType);
+    final xStep = chartArea.width / (data.length - 1).clamp(1, double.infinity);
 
     for (var i = 0; i < data.length; i++) {
       // Skip labels based on step size to avoid overcrowding
@@ -62,34 +67,26 @@ class ChartLabelDrawer {
       final x = chartArea.left + (i * xStep);
       final label = DateFormatter.format(data[i].startDate, viewType);
 
-      _textPainter.text = TextSpan(
-        text: label,
-        style: const TextStyle(
-          fontSize: 10,
-          color: Colors.black,
-          fontWeight: FontWeight.normal,
-        ),
-      );
-      _textPainter.layout();
+      _textPainter
+        ..text = TextSpan(
+          text: label,
+          style: (style.dateLabelStyle ?? style.defaultDateLabelStyle).copyWith(
+            color: style.dateLabelStyle?.color?.withOpacity(animationValue),
+          ),
+        )
+        ..layout();
 
+      // Position labels with proper spacing and animation
+      final labelY = chartArea.bottom + 8;
       final labelX = x - (_textPainter.width / 2);
-      final labelY = chartArea.bottom + 4;
 
-      // Draw background
-      canvas.drawRect(
-        Rect.fromLTWH(
-          labelX - 2,
-          labelY - 2,
-          _textPainter.width + 4,
-          _textPainter.height + 4,
-        ),
-        Paint()..color = Colors.transparent,
-      );
+      // Animate from bottom up
+      final animatedY = lerpDouble(
+          chartArea.bottom + _textPainter.height, labelY, animationValue)!;
 
-      // Draw text
       _textPainter.paint(
         canvas,
-        Offset(labelX, labelY),
+        Offset(labelX, animatedY),
       );
     }
   }
@@ -115,7 +112,8 @@ class ChartLabelDrawer {
     }
   }
 
-  void drawBMIRangeLabels(Canvas canvas, Rect chartArea) {
+  void drawBMIRangeLabels(
+      Canvas canvas, Rect chartArea, double animationValue) {
     // Draw BMI range category labels on the right side
     final rangeLabels = [
       ('Underweight', 18.5),
@@ -127,9 +125,9 @@ class ChartLabelDrawer {
     for (var label in rangeLabels) {
       _textPainter.text = TextSpan(
         text: label.$1,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 9,
-          color: Colors.black54,
+          color: Colors.black54.withValues(alpha: 0.3),
           fontWeight: FontWeight.w500,
         ),
       );
@@ -138,9 +136,13 @@ class ChartLabelDrawer {
       final y =
           chartArea.bottom - ((label.$2 - 15) / (40 - 15)) * chartArea.height;
 
+      // Animate from right side
+      final animatedX = lerpDouble(chartArea.right + _textPainter.width,
+          chartArea.right + 8, animationValue)!;
+
       _textPainter.paint(
         canvas,
-        Offset(chartArea.right + 8, y - _textPainter.height / 2),
+        Offset(animatedX, y - _textPainter.height / 2),
       );
     }
   }

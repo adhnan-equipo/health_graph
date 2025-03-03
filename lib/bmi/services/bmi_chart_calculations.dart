@@ -10,77 +10,117 @@ class BMIChartCalculations {
   static const double _maxPaddingPercent = 0.15;
   static const double _hitTestThreshold = 20.0;
 
-  static List<double> calculateYAxisValues(List<ProcessedBMIData> data) {
-    if (data.isEmpty) {
-      return [15, 20, 25, 30, 35];
+  static (List<double>, double, double) calculateYAxisRange(
+    List<ProcessedBMIData> data,
+    List<(double min, double max)> referenceRanges,
+  ) {
+    if (data.isEmpty && referenceRanges.isEmpty) {
+      return _getDefaultRange();
     }
 
-    final values = _collectValues(data)
-        .where((value) => !value.isNaN && value.isFinite)
-        .toList();
+    // Collect all values to consider
+    final allValues = <double>[];
 
-    if (values.isEmpty) {
-      return [15, 20, 25, 30, 35];
+    // Add data points (only consider non-empty data)
+    for (var point in data.where((d) => !d.isEmpty)) {
+      allValues.addAll([
+        point.minBMI,
+        point.maxBMI,
+        point.avgBMI,
+      ]);
     }
 
-    // Find actual data range
-    var minValue = values.reduce(min);
-    var maxValue = values.reduce(max);
-
-    // Validate values
-    if (minValue.isNaN ||
-        !minValue.isFinite ||
-        maxValue.isNaN ||
-        !maxValue.isFinite) {
-      return [15, 20, 25, 30, 35];
+    // Add BMI category reference ranges if no custom ranges
+    if (referenceRanges.isEmpty) {
+      allValues.addAll([15.0, 18.5, 25.0, 30.0, 35.0]);
+    } else {
+      // Add reference ranges
+      for (var range in referenceRanges) {
+        allValues.addAll([range.$1, range.$2]);
+      }
     }
 
-    // Add padding but respect BMI range limits
+    // Filter out invalid values
+    final validValues =
+        allValues.where((v) => !v.isNaN && v.isFinite && v > 0).toList();
+
+    if (validValues.isEmpty) {
+      return _getDefaultRange();
+    }
+
+    // Find actual min/max from data
+    var minValue = validValues.reduce(min);
+    var maxValue = validValues.reduce(max);
+
+    // Calculate range with padding
     final range = maxValue - minValue;
-    final padding = _calculateDynamicPadding(range) * range;
+    final topPadding = range * 0.15;
+    final bottomPadding = range * 0.15;
 
-    minValue = (minValue - padding).clamp(15.0, 35.0);
-    maxValue = (maxValue + padding).clamp(15.0, 40.0);
+    // Always include standard BMI ranges
+    minValue = min(minValue - bottomPadding, 15.0);
+    maxValue = max(maxValue + topPadding, 35.0);
 
-    // Ensure we always show at least one complete BMI category
+    // Ensure we have a reasonable range
     if (maxValue - minValue < 5) {
       maxValue = minValue + 5;
     }
 
-    // Generate nice step values
-    final step = _calculateStepSize(minValue, maxValue);
-    return _generateAxisValues(minValue, maxValue, step);
+    // Calculate optimal step size
+    final stepSize = _calculateStepSize(minValue, maxValue);
+
+    // Generate axis values with better distribution
+    final yAxisValues = _generateAxisValues(minValue, maxValue, stepSize);
+
+    return (yAxisValues, minValue, maxValue);
   }
 
-  static double _calculateStepSize(double start, double end) {
-    final range = end - start;
-    if (range <= 5) return 1.0;
-    if (range <= 10) return 2.0;
-    return 5.0;
+  static double _calculateStepSize(double min, double max) {
+    final range = max - min;
+    final targetSteps = 6; // Aim for 6 steps
+    final rawStep = range / targetSteps;
+
+    if (rawStep <= 1) return 1.0;
+    if (rawStep <= 2) return 2.0;
+    if (rawStep <= 5) return 5.0;
+    return 10.0;
   }
 
-  static List<double> _collectValues(List<ProcessedBMIData> data) {
-    return data
-        .expand((d) => [d.minBMI, d.maxBMI, d.avgBMI])
-        .where((value) => value > 0)
-        .toList();
-  }
-
-  static double _calculateDynamicPadding(double range) {
-    if (range <= 0) return _maxPaddingPercent;
-    if (range > 20) return _minPaddingPercent;
-    if (range < 5) return _maxPaddingPercent;
-    return _maxPaddingPercent -
-        ((range - 5) / 15) * (_maxPaddingPercent - _minPaddingPercent);
-  }
-
-  static List<double> _generateAxisValues(
-      double start, double end, double step) {
+  static List<double> _generateAxisValues(double min, double max, double step) {
     final values = <double>[];
-    for (var value = start; value <= end; value += step) {
-      values.add(value);
+    var currentValue = min;
+
+    // Round min down to nearest step
+    currentValue = (min / step).floor() * step;
+
+    while (currentValue <= max) {
+      values.add(currentValue);
+      currentValue += step;
     }
+
     return values;
+  }
+
+  static (List<double>, double, double) _getDefaultRange() {
+    const defaultMin = 15.0;
+    const defaultMax = 35.0;
+    const step = 5.0;
+    final values = _generateAxisValues(defaultMin, defaultMax, step);
+    return (values, defaultMin, defaultMax);
+  }
+
+  static Rect calculateChartArea(Size size) {
+    const leftPadding = 35.0;
+    const rightPadding = 10.0;
+    const topPadding = 10.0;
+    const bottomPadding = 30.0;
+
+    return Rect.fromLTRB(
+      leftPadding,
+      topPadding,
+      size.width - rightPadding,
+      size.height - bottomPadding,
+    );
   }
 
   static ProcessedBMIData? findDataPoint(
@@ -91,40 +131,67 @@ class BMIChartCalculations {
     if (data.isEmpty) return null;
     if (!_isWithinChartArea(position, chartArea)) return null;
 
-    final xStep = chartArea.width / (data.length - 1);
-    final index =
-        _findClosestIndex(position.dx, chartArea.left, xStep, data.length);
+    final xStep = chartArea.width / (data.length - 1).clamp(1, double.infinity);
+    int closestIndex = -1;
+    double minDistance = double.infinity;
 
-    if (index >= 0 && index < data.length) {
-      final pointX = chartArea.left + (index * xStep);
-      if ((position.dx - pointX).abs() <= _hitTestThreshold) {
-        return data[index];
+    for (int i = 0; i < data.length; i++) {
+      final x = chartArea.left + (i * xStep);
+      final distance = (position.dx - x).abs();
+
+      if (distance < minDistance && distance <= _hitTestThreshold) {
+        minDistance = distance;
+        closestIndex = i;
       }
+    }
+
+    if (closestIndex >= 0 && !data[closestIndex].isEmpty) {
+      return data[closestIndex];
     }
 
     return null;
   }
 
-  static bool _isWithinChartArea(Offset position, Rect chartArea) {
-    return position.dx >= chartArea.left &&
-        position.dx <= chartArea.right &&
-        position.dy >= chartArea.top &&
-        position.dy <= chartArea.bottom;
+  static bool _isWithinChartArea(Offset position, Rect chartArea,
+      {double tolerance = 10.0}) {
+    final expandedRect = Rect.fromLTRB(
+      chartArea.left - tolerance,
+      chartArea.top - tolerance,
+      chartArea.right + tolerance,
+      chartArea.bottom + tolerance,
+    );
+
+    return expandedRect.contains(position);
   }
 
-  static int _findClosestIndex(
-    double x,
-    double chartLeft,
-    double xStep,
-    int dataLength,
+  static Offset calculateTooltipPosition(
+    Offset tapPosition,
+    Size tooltipSize,
+    Size screenSize,
+    EdgeInsets padding,
   ) {
-    if (dataLength <= 1) return 0;
+    // Calculate initial position (centered above tap point)
+    double x = tapPosition.dx - (tooltipSize.width / 2);
+    double y = tapPosition.dy - tooltipSize.height - 10;
 
-    final relativeX = x - chartLeft;
-    final rawIndex = relativeX / xStep;
-    final index = rawIndex.round();
+    // Adjust for screen edges
+    x = x.clamp(
+      padding.left + 8,
+      screenSize.width - tooltipSize.width - padding.right - 8,
+    );
 
-    return index.clamp(0, dataLength - 1);
+    // If tooltip would go off the top of the screen, position below tap point
+    if (y < padding.top + 8) {
+      y = tapPosition.dy + 10;
+    }
+
+    // Final vertical bounds check
+    y = y.clamp(
+      padding.top + 8,
+      screenSize.height - tooltipSize.height - padding.bottom - 8,
+    );
+
+    return Offset(x, y);
   }
 
   static double getYPosition(

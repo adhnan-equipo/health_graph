@@ -10,6 +10,7 @@ import 'bmi_data_point_drawer.dart';
 import 'chart_background_drawer.dart';
 import 'chart_grid_drawer.dart';
 import 'chart_label_drawer.dart';
+import 'chart_reference_range_drawer.dart';
 
 class BMIChartPainter extends CustomPainter {
   final List<ProcessedBMIData> data;
@@ -26,6 +27,8 @@ class BMIChartPainter extends CustomPainter {
   late final ChartGridDrawer _gridDrawer = ChartGridDrawer();
   late final ChartLabelDrawer _labelDrawer = ChartLabelDrawer();
   late final BMIDataPointDrawer _dataPointDrawer = BMIDataPointDrawer();
+  late final ChartReferenceRangeDrawer _rangeDrawer =
+      ChartReferenceRangeDrawer();
 
   BMIChartPainter({
     required this.data,
@@ -41,33 +44,54 @@ class BMIChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
+    if (data.isEmpty) {
+      _drawEmptyState(canvas, size);
+      return;
+    }
 
     // Draw background and grid
+    canvas.save();
+    canvas.clipRect(chartArea);
+
     _backgroundDrawer.drawBackground(canvas, chartArea);
+
     if (config.showGrid) {
-      _gridDrawer.drawGrid(canvas, chartArea,
-          yAxisValues.map((e) => e.toInt()).toList(), minValue, maxValue, 2);
+      _gridDrawer.drawGrid(
+          canvas,
+          chartArea,
+          yAxisValues.map((e) => e.toInt()).toList(),
+          minValue,
+          maxValue,
+          animation.value);
     }
 
     // Draw BMI range indicators
     _drawBMIRanges(canvas);
+
+    canvas.restore();
 
     // Draw labels
     _labelDrawer.drawSideLabels(
       canvas,
       chartArea,
       yAxisValues.map((e) => e.toDouble()).toList(),
-      TextStyle(color: Colors.black, fontSize: 9),
+      style.gridLabelStyle ?? style.defaultGridLabelStyle,
+      animation.value,
     );
+
     _labelDrawer.drawBottomLabels(
       canvas,
       chartArea,
       data,
       config.viewType,
+      style,
+      animation.value,
     );
 
-    // Draw data points and line
+    // Draw data points and trend line
+    canvas.save();
+    canvas.clipRect(chartArea);
+
     _dataPointDrawer.drawDataPoints(
       canvas,
       chartArea,
@@ -78,48 +102,34 @@ class BMIChartPainter extends CustomPainter {
       minValue,
       maxValue,
     );
+
+    canvas.restore();
   }
 
-  void _drawRangeWithLabel(
-    Canvas canvas,
-    Rect rect,
-    String text,
-    TextStyle style,
-    Paint paint,
-  ) {
-    // Draw the range background
-    canvas.drawRect(rect, paint);
+  void _drawEmptyState(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = style.gridLineColor.withOpacity(0.1 * animation.value)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
 
-    // Draw the label
-    final textPainter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.left,
-    );
-    textPainter.layout(maxWidth: rect.width - 20);
-
-    // Draw semi-transparent white background for better readability
-    final backgroundPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.8)
-      ..style = PaintingStyle.fill;
-
-    final textBgRect = Rect.fromLTWH(
-      rect.left + 10,
-      rect.center.dy - textPainter.height / 2,
-      textPainter.width + 10,
-      textPainter.height,
-    );
-
-    canvas.drawRect(textBgRect, backgroundPaint);
-
-    // Draw text
-    textPainter.paint(
-      canvas,
-      Offset(
-        rect.left + 15,
-        rect.center.dy - textPainter.height / 2,
-      ),
-    );
+    // Draw animated grid pattern
+    const spacing = 20.0;
+    for (var x = 0.0; x < size.width; x += spacing) {
+      final progress = (x / size.width * animation.value).clamp(0.0, 1.0);
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height * progress),
+        paint,
+      );
+    }
+    for (var y = 0.0; y < size.height; y += spacing) {
+      final progress = (y / size.height * animation.value).clamp(0.0, 1.0);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width * progress, y),
+        paint,
+      );
+    }
   }
 
   void _drawBMIRanges(Canvas canvas) {
@@ -150,15 +160,26 @@ class BMIChartPainter extends CustomPainter {
       // Don't draw if range is too small to be visible
       if ((endY - startY).abs() < 10) return;
 
-      // Draw range background
-      rangePaint.color = color.withValues(alpha: 0.1);
+      // Draw range background with animation
+      rangePaint.color = color.withOpacity(0.1 * animation.value);
       final rangeRect = Rect.fromLTRB(
         chartArea.left,
         startY,
         chartArea.right,
         endY,
       );
-      canvas.drawRect(rangeRect, rangePaint);
+
+      // Animate range drawing from center
+      final centerY = (startY + endY) / 2;
+      final animatedHeight = (endY - startY) * animation.value;
+      final animatedRect = Rect.fromLTRB(
+        chartArea.left,
+        centerY - animatedHeight / 2,
+        chartArea.right,
+        centerY + animatedHeight / 2,
+      );
+
+      canvas.drawRect(animatedRect, rangePaint);
 
       // Only draw label if there's enough space
       if ((endY - startY).abs() >= 20) {
@@ -171,11 +192,15 @@ class BMIChartPainter extends CustomPainter {
       }
     }
 
-    // Draw ranges from bottom to top
-    drawRangeIfVisible(30.0, 40.0, 'Obese', style.obeseRangeColor);
-    drawRangeIfVisible(25.0, 30.0, 'Overweight', style.overweightRangeColor);
-    drawRangeIfVisible(18.5, 25.0, 'Normal', style.normalRangeColor);
-    drawRangeIfVisible(15.0, 18.5, 'Underweight', style.underweightRangeColor);
+    // Draw ranges from bottom to top with animation
+    drawRangeIfVisible(
+        30.0, 40.0, style.obeseLabel ?? 'Obese', style.obeseRangeColor);
+    drawRangeIfVisible(25.0, 30.0, style.overweightLabel ?? 'Overweight',
+        style.overweightRangeColor);
+    drawRangeIfVisible(
+        18.5, 25.0, style.normalLabel ?? 'Healthy', style.normalRangeColor);
+    drawRangeIfVisible(15.0, 18.5, style.underweightLabel ?? 'Underweight',
+        style.underweightRangeColor);
   }
 
   void _drawCenteredLabel(
@@ -185,7 +210,12 @@ class BMIChartPainter extends CustomPainter {
     TextStyle style,
   ) {
     final textPainter = TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: TextSpan(
+        text: text,
+        style: style.copyWith(
+          color: style.color?.withOpacity(animation.value),
+        ),
+      ),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     );
@@ -211,10 +241,10 @@ class BMIChartPainter extends CustomPainter {
 
     canvas.drawRect(
       backgroundRect,
-      Paint()..color = Colors.white.withValues(alpha: 0.8),
+      Paint()..color = Colors.white.withOpacity(0.8 * animation.value),
     );
 
-    // Draw text centered in the range
+    // Draw text centered in the range with animation
     textPainter.paint(
       canvas,
       Offset(
@@ -235,7 +265,7 @@ class BMIChartPainter extends CustomPainter {
         style != oldDelegate.style ||
         config != oldDelegate.config ||
         selectedData != oldDelegate.selectedData ||
-        animation != oldDelegate.animation ||
+        animation.value != oldDelegate.animation.value ||
         chartArea != oldDelegate.chartArea ||
         yAxisValues != oldDelegate.yAxisValues ||
         minValue != oldDelegate.minValue ||

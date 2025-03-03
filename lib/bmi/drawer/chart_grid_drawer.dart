@@ -29,6 +29,25 @@ class ChartGridDrawer {
     }
   }
 
+// Additional changes to chart_grid_drawer.dart
+  static double calculateXPosition(
+    int index,
+    int totalPoints,
+    Rect chartArea,
+  ) {
+    // Add proper edge padding
+    const edgePadding = 12.0;
+    final availableWidth = chartArea.width - (edgePadding * 2);
+
+    // Handle single point case
+    if (totalPoints <= 1) {
+      return chartArea.center.dx;
+    }
+
+    final pointSpacing = availableWidth / (totalPoints - 1);
+    return chartArea.left + edgePadding + (index * pointSpacing);
+  }
+
   double _getYPosition(
       double value, Rect chartArea, double minValue, double maxValue) {
     return chartArea.bottom -
