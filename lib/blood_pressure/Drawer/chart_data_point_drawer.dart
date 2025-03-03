@@ -1,5 +1,5 @@
-// Updated ChartDataPointDrawer with improved plotting
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -12,9 +12,8 @@ class ChartDataPointDrawer {
   final Paint _dataPointPaint = Paint()..strokeCap = StrokeCap.round;
   final Paint _linePaint = Paint()..style = PaintingStyle.stroke;
   final Paint _fillPaint = Paint()..style = PaintingStyle.fill;
-  int? _lastSelectedIndex;
+
   // Cache for performance optimization
-  final Map<int, Offset> _pointPositionCache = {};
   String _lastDataHash = '';
   Path? _systolicPath;
   Path? _diastolicPath;
@@ -25,41 +24,24 @@ class ChartDataPointDrawer {
     List<ProcessedBloodPressureData> data,
     BloodPressureChartStyle style,
     Animation<double> animation,
-    ProcessedBloodPressureData? selectedData,
     double minValue,
     double maxValue,
   ) {
     if (data.isEmpty) return;
 
-    // Find selected index
-    int? selectedIndex;
-    if (selectedData != null) {
-      selectedIndex = data.indexWhere((d) =>
-          d.startDate == selectedData.startDate &&
-          d.endDate == selectedData.endDate);
-    }
-
-    // Only rebuild paths if data changes or selection changes
+    // Only rebuild paths if data changes
     final currentHash =
-        '${data.length}_${data.isNotEmpty ? data.first.hashCode : 0}_${selectedIndex ?? -1}';
+        '${data.length}_${data.isNotEmpty ? data.first.hashCode : 0}';
     if (currentHash != _lastDataHash) {
       _lastDataHash = currentHash;
       _buildPaths(chartArea, data, minValue, maxValue);
-      _lastSelectedIndex = selectedIndex;
     }
 
-    // Only draw selection highlight if needed
-    if (selectedIndex != null && selectedIndex >= 0) {
-      final x = ChartCalculations.calculateXPosition(
-          selectedIndex, data.length, chartArea);
-      _drawYAxisHighlight(canvas, x, chartArea, style, animation.value);
-    }
-
-    // Draw trend lines
-    _drawTrendLines(
+    // Draw trend lines with gradient
+    _drawEnhancedTrendLines(
         canvas, chartArea, data, style, animation, minValue, maxValue);
 
-    // Draw data points - we can optimize this by only redrawing points that need updating
+    // Draw data points
     for (var i = 0; i < data.length; i++) {
       final entry = data[i];
       if (entry.isEmpty) continue;
@@ -76,102 +58,18 @@ class ChartDataPointDrawer {
           maxValue,
         );
 
-        final isSelected = selectedIndex == i;
         final animationValue =
             _calculateAnimationValue(i, data.length, animation);
 
         // Draw the point based on type
         if (entry.dataPointCount == 1) {
-          _drawSinglePoint(
-              canvas, positions, style, animationValue, isSelected);
+          _drawEnhancedSinglePoint(
+              canvas, positions, style, animationValue, entry);
         } else {
-          _drawRangePoint(canvas, positions, style, animationValue, isSelected);
+          _drawEnhancedRangePoint(
+              canvas, positions, style, animationValue, entry);
         }
       }
-    }
-  }
-
-  // Enhanced method to highlight the entire y-axis
-  void _drawYAxisHighlight(
-    Canvas canvas,
-    double x,
-    Rect chartArea,
-    BloodPressureChartStyle style,
-    double animationValue,
-  ) {
-    // Create subtle pulsing effect
-    final pulseValue = 0.85 + 0.15 * sin(animationValue * 4);
-
-    // Draw vertical line that spans the entire height
-    _linePaint
-      ..color = style.selectedHighlightColor.withOpacity(0.7 * pulseValue)
-      ..strokeWidth = 2.5;
-
-    // Draw main y-axis line from top to bottom of chart area
-    canvas.drawLine(
-      Offset(x, chartArea.top),
-      Offset(x, chartArea.bottom),
-      _linePaint,
-    );
-
-    // Add glow effect to make the y-axis more visible
-    _fillPaint
-      ..color = style.selectedHighlightColor.withOpacity(0.3)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-
-    // Draw a rectangle along the y-axis with blur for glow effect
-    final highlightRect =
-        Rect.fromLTRB(x - 1, chartArea.top, x + 1, chartArea.bottom);
-    canvas.drawRect(highlightRect, _fillPaint);
-    _fillPaint.maskFilter = null;
-
-    // Add subtle gradient background to highlight selected column
-    final gradientRect = Rect.fromLTRB(
-      x - 25,
-      chartArea.top,
-      x + 25,
-      chartArea.bottom,
-    );
-
-    final gradient = LinearGradient(
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-      colors: [
-        style.selectedHighlightColor.withOpacity(0),
-        style.selectedHighlightColor.withOpacity(0.15 * pulseValue),
-        style.selectedHighlightColor.withOpacity(0.15 * pulseValue),
-        style.selectedHighlightColor.withOpacity(0),
-      ],
-      stops: const [0.0, 0.3, 0.7, 1.0],
-    );
-
-    _fillPaint
-      ..shader = gradient.createShader(gradientRect)
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRect(gradientRect, _fillPaint);
-    _fillPaint.shader = null;
-
-    // Draw dots along y-axis for visual interest
-    _fillPaint
-      ..color = style.selectedHighlightColor.withOpacity(0.7)
-      ..style = PaintingStyle.fill;
-
-    // Draw dots with varying sizes along the y-axis
-    final numDots = 8;
-    final dotSpacing = chartArea.height / (numDots + 1);
-
-    for (int i = 1; i <= numDots; i++) {
-      // Animate dots along the line
-      final y = chartArea.top + (dotSpacing * i);
-
-      // Vary dot size based on position and animation
-      final dotSize = 1.5 + 1.0 * sin(animationValue * 3 + i * 0.7);
-      canvas.drawCircle(
-        Offset(x, y),
-        dotSize * pulseValue,
-        _fillPaint,
-      );
     }
   }
 
@@ -186,6 +84,8 @@ class ChartDataPointDrawer {
     _diastolicPath = Path();
 
     bool isFirstValid = true;
+    List<Offset> systolicPoints = [];
+    List<Offset> diastolicPoints = [];
 
     for (var i = 0; i < data.length; i++) {
       final entry = data[i];
@@ -207,18 +107,57 @@ class ChartDataPointDrawer {
         maxValue,
       );
 
+      systolicPoints.add(Offset(x, systolicY));
+      diastolicPoints.add(Offset(x, diastolicY));
+
       if (isFirstValid) {
         _systolicPath!.moveTo(x, systolicY);
         _diastolicPath!.moveTo(x, diastolicY);
         isFirstValid = false;
       } else {
-        _systolicPath!.lineTo(x, systolicY);
-        _diastolicPath!.lineTo(x, diastolicY);
+        // Use a smooth curve instead of straight lines for better appearance
+        if (systolicPoints.length >= 3) {
+          final p1 = systolicPoints[systolicPoints.length - 3];
+          final p2 = systolicPoints[systolicPoints.length - 2];
+          final p3 = systolicPoints[systolicPoints.length - 1];
+
+          if (systolicPoints.length == 3) {
+            _systolicPath!.lineTo(p2.dx, p2.dy);
+          }
+
+          // Calculate control points for a smooth curve
+          final controlPoint1 =
+              Offset(p2.dx + (p3.dx - p1.dx) / 6, p2.dy + (p3.dy - p1.dy) / 6);
+
+          _systolicPath!.quadraticBezierTo(
+              controlPoint1.dx, controlPoint1.dy, p3.dx, p3.dy);
+        } else {
+          _systolicPath!.lineTo(x, systolicY);
+        }
+
+        if (diastolicPoints.length >= 3) {
+          final p1 = diastolicPoints[diastolicPoints.length - 3];
+          final p2 = diastolicPoints[diastolicPoints.length - 2];
+          final p3 = diastolicPoints[diastolicPoints.length - 1];
+
+          if (diastolicPoints.length == 3) {
+            _diastolicPath!.lineTo(p2.dx, p2.dy);
+          }
+
+          // Calculate control points for a smooth curve
+          final controlPoint1 =
+              Offset(p2.dx + (p3.dx - p1.dx) / 6, p2.dy + (p3.dy - p1.dy) / 6);
+
+          _diastolicPath!.quadraticBezierTo(
+              controlPoint1.dx, controlPoint1.dy, p3.dx, p3.dy);
+        } else {
+          _diastolicPath!.lineTo(x, diastolicY);
+        }
       }
     }
   }
 
-  void _drawTrendLines(
+  void _drawEnhancedTrendLines(
     Canvas canvas,
     Rect chartArea,
     List<ProcessedBloodPressureData> data,
@@ -229,20 +168,87 @@ class ChartDataPointDrawer {
   ) {
     if (_systolicPath == null || _diastolicPath == null) return;
 
-    // Draw systolic trend line with animation
+    // Create a gradient for systolic line
+    final systolicGradient = ui.Gradient.linear(
+      Offset(0, chartArea.top),
+      Offset(0, chartArea.bottom),
+      [
+        style.systolicColor.withOpacity(0.7 * animation.value),
+        style.systolicColor.withOpacity(0.3 * animation.value),
+      ],
+    );
+
+    // Draw systolic trend line with animation and gradient
     _linePaint
-      ..color = style.systolicColor.withOpacity(0.3 * animation.value)
-      ..strokeWidth = 1.5;
+      ..shader = systolicGradient
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
     canvas.drawPath(_systolicPath!, _linePaint);
 
-    // Draw diastolic trend line with animation
+    // Create a gradient for diastolic line
+    final diastolicGradient = ui.Gradient.linear(
+      Offset(0, chartArea.top),
+      Offset(0, chartArea.bottom),
+      [
+        style.diastolicColor.withOpacity(0.7 * animation.value),
+        style.diastolicColor.withOpacity(0.3 * animation.value),
+      ],
+    );
+
+    // Draw diastolic trend line with animation and gradient
     _linePaint
-      ..color = style.diastolicColor.withOpacity(0.3 * animation.value)
-      ..strokeWidth = 1.5;
+      ..shader = diastolicGradient
+      ..strokeWidth = 2.5;
     canvas.drawPath(_diastolicPath!, _linePaint);
+
+    // Reset shader
+    _linePaint.shader = null;
+
+    // Add a subtle fill under the lines for better visual effect
+    if (animation.value > 0.5) {
+      final fillOpacity = (animation.value - 0.5) * 2 * 0.15; // Max 15% opacity
+
+      // Create path for systolic area fill
+      final systolicFillPath = Path.from(_systolicPath!);
+      systolicFillPath.lineTo(chartArea.right, chartArea.bottom);
+      systolicFillPath.lineTo(chartArea.left, chartArea.bottom);
+      systolicFillPath.close();
+
+      // Create path for diastolic area fill
+      final diastolicFillPath = Path.from(_diastolicPath!);
+      diastolicFillPath.lineTo(chartArea.right, chartArea.bottom);
+      diastolicFillPath.lineTo(chartArea.left, chartArea.bottom);
+      diastolicFillPath.close();
+
+      // Draw fills
+      _fillPaint
+        ..shader = ui.Gradient.linear(
+          Offset(0, chartArea.top),
+          Offset(0, chartArea.bottom),
+          [
+            style.systolicColor.withOpacity(fillOpacity),
+            style.systolicColor.withOpacity(0),
+          ],
+        );
+      canvas.drawPath(systolicFillPath, _fillPaint);
+
+      _fillPaint
+        ..shader = ui.Gradient.linear(
+          Offset(0, chartArea.top),
+          Offset(0, chartArea.bottom),
+          [
+            style.diastolicColor.withOpacity(fillOpacity),
+            style.diastolicColor.withOpacity(0),
+          ],
+        );
+      canvas.drawPath(diastolicFillPath, _fillPaint);
+
+      // Reset shader
+      _fillPaint.shader = null;
+    }
   }
 
-  void _drawSinglePoint(
+  void _drawEnhancedSinglePoint(
     Canvas canvas,
     ({
       Offset maxSystolicPoint,
@@ -252,40 +258,50 @@ class ChartDataPointDrawer {
     }) positions,
     BloodPressureChartStyle style,
     double animationValue,
-    bool isSelected,
+    ProcessedBloodPressureData data,
   ) {
-    // Draw connecting line with increased opacity for selected points
-    if (isSelected) {
-      _linePaint
-        ..color = style.connectorColor.withOpacity(0.6 * animationValue)
-        ..strokeWidth = style.lineThickness;
-      canvas.drawLine(
-          positions.maxSystolicPoint, positions.maxDiastolicPoint, _linePaint);
-    }
+    // Draw connecting line with gradient
+    final lineGradient = ui.Gradient.linear(
+      positions.maxSystolicPoint,
+      positions.maxDiastolicPoint,
+      [
+        style.systolicColor.withOpacity(0.7 * animationValue),
+        style.diastolicColor.withOpacity(0.7 * animationValue),
+      ],
+    );
 
-    // Draw points with enhanced visibility for selected state
-    _drawAnimatedPoint(
+    _linePaint
+      ..shader = lineGradient
+      ..strokeWidth = style.lineThickness + 0.5; // Slightly thicker
+    canvas.drawLine(
+        positions.maxSystolicPoint, positions.maxDiastolicPoint, _linePaint);
+    _linePaint.shader = null;
+
+    // Draw points with enhanced appearance
+    _drawEnhancedDataPoint(
       canvas,
       positions.maxSystolicPoint,
       style.systolicColor,
-      style.pointRadius * (isSelected ? 1.3 : 1.0),
+      style.pointRadius * 1.2, // Slightly larger
       animationValue,
-      isSelected,
       style,
+      true, // Is systolic
+      data.maxSystolic,
     );
 
-    _drawAnimatedPoint(
+    _drawEnhancedDataPoint(
       canvas,
       positions.maxDiastolicPoint,
       style.diastolicColor,
-      style.pointRadius * (isSelected ? 1.3 : 1.0),
+      style.pointRadius * 1.2, // Slightly larger
       animationValue,
-      isSelected,
       style,
+      false, // Is diastolic
+      data.maxDiastolic,
     );
   }
 
-  void _drawRangePoint(
+  void _drawEnhancedRangePoint(
     Canvas canvas,
     ({
       Offset maxSystolicPoint,
@@ -295,44 +311,73 @@ class ChartDataPointDrawer {
     }) positions,
     BloodPressureChartStyle style,
     double animationValue,
-    bool isSelected,
+    ProcessedBloodPressureData data,
   ) {
-    final rangeWidth = style.lineThickness * (isSelected ? 3.5 : 3.0);
+    final rangeWidth = style.lineThickness * 3.5;
 
-    // Draw systolic range with animation
-    _drawAnimatedRangeLine(
+    // Create gradient for systolic range
+    final systolicGradient = ui.Gradient.linear(
+      positions.maxSystolicPoint,
+      positions.minSystolicPoint,
+      [
+        style.systolicColor.withOpacity(0.9 * animationValue),
+        style.systolicColor.withOpacity(0.5 * animationValue),
+      ],
+    );
+
+    // Create gradient for diastolic range
+    final diastolicGradient = ui.Gradient.linear(
+      positions.maxDiastolicPoint,
+      positions.minDiastolicPoint,
+      [
+        style.diastolicColor.withOpacity(0.9 * animationValue),
+        style.diastolicColor.withOpacity(0.5 * animationValue),
+      ],
+    );
+
+    // Draw systolic range with gradient
+    _drawEnhancedRangeLine(
       canvas,
       positions.maxSystolicPoint,
       positions.minSystolicPoint,
       style.systolicColor,
+      systolicGradient,
       rangeWidth,
       animationValue,
-      isSelected,
       style,
+      true,
+      data.minSystolic,
+      data.maxSystolic,
     );
 
-    // Draw diastolic range with animation
-    _drawAnimatedRangeLine(
+    // Draw diastolic range with gradient
+    _drawEnhancedRangeLine(
       canvas,
       positions.maxDiastolicPoint,
       positions.minDiastolicPoint,
       style.diastolicColor,
+      diastolicGradient,
       rangeWidth,
       animationValue,
-      isSelected,
       style,
+      false,
+      data.minDiastolic,
+      data.maxDiastolic,
     );
   }
 
-  void _drawAnimatedRangeLine(
+  void _drawEnhancedRangeLine(
     Canvas canvas,
     Offset start,
     Offset end,
     Color color,
+    ui.Gradient gradient,
     double width,
     double animationValue,
-    bool isSelected,
     BloodPressureChartStyle style,
+    bool isSystolic,
+    int minValue,
+    int maxValue,
   ) {
     // Animate line drawing from center
     final center = Offset(
@@ -343,78 +388,85 @@ class ChartDataPointDrawer {
     final animatedStart = Offset.lerp(center, start, animationValue)!;
     final animatedEnd = Offset.lerp(center, end, animationValue)!;
 
-    // Draw outer line
+    // Draw main line with gradient
     _linePaint
-      ..color = color.withOpacity(isSelected ? 0.8 : 0.4)
+      ..shader = gradient
       ..strokeWidth = width;
     canvas.drawLine(animatedStart, animatedEnd, _linePaint);
+    _linePaint.shader = null;
 
-    // Draw inner line for hollow effect
-    if (!isSelected) {
-      _linePaint
-        ..color = color.withOpacity(0.6)
-        ..strokeWidth = width * 0.6;
-      canvas.drawLine(animatedStart, animatedEnd, _linePaint);
-    }
-
-    // Draw end caps with animation
-    _drawAnimatedPoint(
+    // Draw decorative capsules at ends
+    _drawEnhancedDataPoint(
       canvas,
       animatedStart,
       color,
-      width / 2,
+      width / 2 + 1,
       animationValue,
-      isSelected,
       style,
+      isSystolic,
+      maxValue,
     );
-    _drawAnimatedPoint(
+
+    _drawEnhancedDataPoint(
       canvas,
       animatedEnd,
       color,
-      width / 2,
+      width / 2 + 1,
       animationValue,
-      isSelected,
       style,
+      isSystolic,
+      minValue,
     );
   }
 
-  void _drawAnimatedPoint(
+  void _drawEnhancedDataPoint(
     Canvas canvas,
     Offset position,
     Color color,
     double radius,
     double animationValue,
-    bool isSelected,
     BloodPressureChartStyle style,
+    bool isSystolic,
+    int value,
   ) {
-    // Enhanced radius for selected points
-    final baseRadius = radius * (isSelected ? 1.3 : 1.0);
-    final animatedRadius = baseRadius * animationValue;
+    // Apply animation to radius
+    final animatedRadius = radius * animationValue;
 
-    // Draw glow effect for selected points
-    if (isSelected) {
-      _fillPaint
-        ..color = color.withOpacity(0.3)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    // Create a soft glow effect
+    _fillPaint
+      ..color = color.withOpacity(0.3 * animationValue)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawCircle(position, animatedRadius * 1.5, _fillPaint);
+    _fillPaint.maskFilter = null;
 
-      canvas.drawCircle(position, animatedRadius * 1.8, _fillPaint);
-      _fillPaint.maskFilter = null;
-    }
+    // Draw outer circle with a gradient
+    final outerGradient = ui.Gradient.radial(
+      position,
+      animatedRadius,
+      [
+        color.withOpacity(0.9 * animationValue),
+        color.withOpacity(0.7 * animationValue),
+      ],
+    );
 
-    // Draw outer circle with smooth animation
     _dataPointPaint
-      ..color = color.withOpacity(0.9 * animationValue)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isSelected ? 2.5 : 1.8;
+      ..shader = outerGradient
+      ..style = PaintingStyle.fill;
     canvas.drawCircle(position, animatedRadius, _dataPointPaint);
 
-    // Fill circle with more opacity for selected points
-    _dataPointPaint
-      ..style = PaintingStyle.fill
-      ..color = color.withOpacity(
-          isSelected ? 0.8 * animationValue : 0.5 * animationValue);
-    canvas.drawCircle(
-        position, animatedRadius - (isSelected ? 1.0 : 1.5), _dataPointPaint);
+    // Draw a highlight to create a 3D effect
+    final highlightOffset = Offset(
+      position.dx - animatedRadius * 0.3,
+      position.dy - animatedRadius * 0.3,
+    );
+
+    _fillPaint
+      ..color = Colors.white.withOpacity(0.5 * animationValue)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(highlightOffset, animatedRadius * 0.4, _fillPaint);
+
+    // Reset shader
+    _dataPointPaint.shader = null;
   }
 
   // Improved animation calculation for smoother transitions

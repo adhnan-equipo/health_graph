@@ -88,17 +88,6 @@ class ChartController extends ChangeNotifier {
     _processData();
   }
 
-  void selectData(ProcessedBloodPressureData? data) {
-    // Only update and notify if selection actually changed
-    final bool hasChanged = _selectedData?.startDate != data?.startDate ||
-        _selectedData?.endDate != data?.endDate;
-
-    if (hasChanged) {
-      _selectedData = data;
-      notifyListeners();
-    }
-  }
-
   bool _listEquals<T>(List<T> a, List<T> b) {
     if (identical(a, b)) return true;
     if (a.length != b.length) return false;

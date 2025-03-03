@@ -14,7 +14,6 @@ class BloodPressureChartPainter extends CustomPainter {
   final BloodPressureChartStyle style;
   final ChartViewConfig config;
   final Animation<double> animation;
-  final ProcessedBloodPressureData? selectedData;
   final Rect chartArea;
   final List<int> yAxisValues;
   final double minValue;
@@ -36,7 +35,6 @@ class BloodPressureChartPainter extends CustomPainter {
     required this.yAxisValues,
     required this.minValue,
     required this.maxValue,
-    this.selectedData,
   }) : super(repaint: animation);
 
   @override
@@ -104,7 +102,6 @@ class BloodPressureChartPainter extends CustomPainter {
       data,
       style,
       animation,
-      selectedData,
       minValue,
       maxValue,
     );
@@ -140,19 +137,6 @@ class BloodPressureChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BloodPressureChartPainter oldDelegate) {
-    // Check only the properties that should trigger a repaint
-    final selectionChanged =
-        (selectedData?.startDate != oldDelegate.selectedData?.startDate) ||
-            (selectedData?.endDate != oldDelegate.selectedData?.endDate);
-
-    // If only selection changed, we can use a more targeted approach
-    if (selectionChanged &&
-        data == oldDelegate.data &&
-        chartArea == oldDelegate.chartArea) {
-      // This is a hint to the system that we only need to repaint the selection
-      return true;
-    }
-
     // Full repaint needed only when these key properties change
     return data != oldDelegate.data ||
         chartArea != oldDelegate.chartArea ||

@@ -37,6 +37,15 @@ class BloodPressureDataProcessor {
       currentDate = _getNextDate(currentDate, dateRangeType);
     }
 
+    // Check if we have any non-empty data points
+    bool hasRealData = processedData.any((data) =>
+        !data.isEmpty && (data.maxSystolic > 0 || data.maxDiastolic > 0));
+
+    // If no real data exists, return an empty list instead of zero-filled data points
+    if (!hasRealData) {
+      return [];
+    }
+
     final effectiveMaxPoints = (maxDataPoints * zoomLevel).round();
     if (processedData.length > effectiveMaxPoints) {
       return _aggregateProcessedData(processedData, effectiveMaxPoints);
@@ -71,6 +80,11 @@ class BloodPressureDataProcessor {
         measurements.map((m) => m.systolic ?? 0).where((v) => v > 0).toList();
     final diastolicValues =
         measurements.map((m) => m.diastolic ?? 0).where((v) => v > 0).toList();
+
+    // If no valid values, return empty data point
+    if (systolicValues.isEmpty || diastolicValues.isEmpty) {
+      return ProcessedBloodPressureData.empty(date);
+    }
 
     return ProcessedBloodPressureData(
       startDate: measurements.first.date,
@@ -127,28 +141,8 @@ class BloodPressureDataProcessor {
     DateTime startDate,
     DateTime endDate,
   ) {
-    List<ProcessedBloodPressureData> emptyPoints = [];
-    var currentDate = startDate;
-
-    while (currentDate.isBefore(endDate) ||
-        currentDate.isAtSameMomentAs(endDate)) {
-      emptyPoints.add(ProcessedBloodPressureData.empty(currentDate));
-
-      switch (dateRangeType) {
-        case DateRangeType.day:
-          currentDate = currentDate.add(const Duration(hours: 1));
-          break;
-        case DateRangeType.week:
-        case DateRangeType.month:
-          currentDate = currentDate.add(const Duration(days: 1));
-          break;
-        case DateRangeType.year:
-          currentDate = DateTime(currentDate.year, currentDate.month + 1, 1);
-          break;
-      }
-    }
-
-    return emptyPoints;
+    // Return a truly empty list instead of filling with empty data points
+    return [];
   }
 
   static List<ProcessedBloodPressureData> _aggregateProcessedData(

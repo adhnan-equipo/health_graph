@@ -5,10 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/processed_blood_pressure_data.dart';
 
 class ChartCalculations {
-  static const double _hitTestThreshold = 20.0;
-  static const double _topPaddingPercent = 0.01;
-  static const double _bottomPaddingPercent = 0.12;
-
   static (List<int>, double, double) calculateYAxisRange(
     List<ProcessedBloodPressureData> data,
     List<(int min, int max)> referenceRanges,
@@ -45,19 +41,19 @@ class ChartCalculations {
     final minValue = allValues.reduce(min);
     final maxValue = allValues.reduce(max);
 
-    // Calculate range with increased padding
+    // Calculate range with padding
     final range = maxValue - minValue;
-    final topPadding = range * 0.15; // Increased from 0.01
-    final bottomPadding = range * 0.15; // Increased from 0.12
+    final topPadding = range * 0.15;
+    final bottomPadding = range * 0.15;
 
     // Round to nearest 10 with extra space
     final adjustedMin = max(0, ((minValue - bottomPadding) / 10).floor() * 10);
     var adjustedMax = ((maxValue + topPadding) / 10).ceil() * 10;
 
-    // Ensure maximum is at least 200 and has enough padding
-    adjustedMax = max(adjustedMax, max(200, maxValue + 20));
+    // Ensure maximum has enough padding
+    adjustedMax = max(adjustedMax, maxValue + 20);
 
-    // Calculate optimal step size with better distribution
+    // Calculate optimal step size
     final effectiveRange = adjustedMax - adjustedMin;
     var stepSize = (effectiveRange / 6).ceil();
     stepSize = _roundToNiceNumber(stepSize);
@@ -68,22 +64,21 @@ class ChartCalculations {
     return (yAxisValues, adjustedMin.toDouble(), adjustedMax.toDouble());
   }
 
-// Helper method for better step size calculation
+  // Helper method for better step size calculation
   static int _roundToNiceNumber(int number) {
     if (number <= 5) return 5;
     if (number <= 10) return 10;
     if (number <= 20) return 20;
     if (number <= 25) return 25;
     if (number <= 50) return 50;
-    return ((number + 99) ~/ 100) * 100; // Increased scale for larger numbers
+    return ((number + 99) ~/ 100) * 100;
   }
 
   static Rect calculateChartArea(Size size) {
-    // Minimize top padding while maintaining bottom space for labels
-    const leftPadding = 30.0;
+    const leftPadding = 40.0; // Increased for better y-axis label visibility
     const rightPadding = 10.0;
-    const topPadding = 10.0; // Reduced from 30.0
-    const bottomPadding = 10.0;
+    const topPadding = 10.0;
+    const bottomPadding = 30.0; // Increased for better x-axis label visibility
 
     return Rect.fromLTRB(
       leftPadding,
@@ -103,29 +98,33 @@ class ChartCalculations {
     }
 
     // Ensure we have enough values for proper spacing
-    if (values.length < 6) {
+    if (values.length < 5) {
       final additionalStep = step ~/ 2;
-      var additionalValue = start + additionalStep;
+      if (additionalStep > 0) {
+        var additionalValue = start + additionalStep;
 
-      while (additionalValue < end) {
-        values.add(additionalValue);
-        additionalValue += step;
+        while (additionalValue < end) {
+          if (!values.contains(additionalValue)) {
+            values.add(additionalValue);
+          }
+          additionalValue += step;
+        }
+        values.sort();
       }
-      values.sort();
     }
 
     return values;
   }
 
   static (List<int>, double, double) _getDefaultRange() {
-    const defaultMin = 0; // Adjusted for blood pressure
-    const defaultMax = 200;
+    const defaultMin = 40; // Lower minimum for blood pressure
+    const defaultMax = 180; // Common maximum for normal blood pressure display
     const step = 20;
     final values = _generateAxisValues(defaultMin, defaultMax, step);
     return (values, defaultMin.toDouble(), defaultMax.toDouble());
   }
 
-  // Keep existing X position calculation
+  // Calculate X position based on index in data array
   static double calculateXPosition(
     int index,
     int totalPoints,
@@ -134,63 +133,11 @@ class ChartCalculations {
     if (totalPoints <= 1) return chartArea.center.dx;
 
     final effectiveWidth = chartArea.width;
-    const edgePadding = 10.0;
+    const edgePadding = 15.0; // Increased for better visibility at edges
     final availableWidth = effectiveWidth - (edgePadding * 2);
     final pointSpacing = availableWidth / (totalPoints - 1);
 
     return chartArea.left + edgePadding + (index * pointSpacing);
-  }
-
-  /// Finds the data point closest to the given position
-  static ProcessedBloodPressureData? findDataPoint(
-    Offset position,
-    Rect chartArea,
-    List<ProcessedBloodPressureData> data,
-  ) {
-    if (data.isEmpty || !_isWithinChartArea(position, chartArea)) {
-      return null;
-    }
-
-    final xStep = chartArea.width / (data.length - 1);
-    final index = _findClosestIndex(
-      position.dx,
-      chartArea.left,
-      xStep,
-      data.length,
-    );
-
-    if (index >= 0 && index < data.length) {
-      final pointX = chartArea.left + (index * xStep);
-      if ((position.dx - pointX).abs() <= _hitTestThreshold) {
-        return data[index];
-      }
-    }
-
-    return null;
-  }
-
-  /// Checks if a point is within the chart area
-  static bool _isWithinChartArea(Offset position, Rect chartArea) {
-    return position.dx >= chartArea.left &&
-        position.dx <= chartArea.right &&
-        position.dy >= chartArea.top &&
-        position.dy <= chartArea.bottom;
-  }
-
-  /// Finds the index of the closest data point
-  static int _findClosestIndex(
-    double x,
-    double chartLeft,
-    double xStep,
-    int dataLength,
-  ) {
-    if (dataLength <= 1) return 0;
-
-    final relativeX = x - chartLeft;
-    final rawIndex = relativeX / xStep;
-    final index = rawIndex.round();
-
-    return index.clamp(0, dataLength - 1);
   }
 
   /// Calculate tooltip position to ensure it stays within screen bounds

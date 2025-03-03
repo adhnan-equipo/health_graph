@@ -1,8 +1,8 @@
-// lib/blood_pressure/widgets/chart/blood_pressure_chart_content.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../utils/chart_view_config.dart';
+import '../../../utils/empty_state_overlay.dart';
 import '../../Drawer/blood_pressure_chart_painter.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../services/chart_calculations.dart';
@@ -15,12 +15,9 @@ class BloodPressureChartContent extends StatefulWidget {
   final ChartViewConfig config;
   final double height;
   final Animation<double> animation;
-  final ProcessedBloodPressureData? selectedData;
   final List<(int min, int max)> referenceRanges;
-  final Function(ProcessedBloodPressureData?)? onDataSelected;
   final Function(ProcessedBloodPressureData)? onDataPointTap;
   final Function(ProcessedBloodPressureData)? onTooltipTap;
-  final Function(ProcessedBloodPressureData)? onLongPress;
 
   const BloodPressureChartContent({
     Key? key,
@@ -29,12 +26,9 @@ class BloodPressureChartContent extends StatefulWidget {
     required this.config,
     this.height = 300,
     required this.animation,
-    this.selectedData,
     required this.referenceRanges,
-    this.onDataSelected,
     this.onDataPointTap,
     this.onTooltipTap,
-    this.onLongPress,
   }) : super(key: key);
 
   @override
@@ -50,7 +44,6 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
   double? _minValue;
   double? _maxValue;
   OverlayEntry? _tooltipOverlay;
-  ProcessedBloodPressureData? _lastSelectedData;
 
   // Cache the last calculation to prevent unnecessary updates
   String _lastDataHash = '';
@@ -91,9 +84,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
   }
 
   String _calculateDataHash() {
-    return widget.data.length.toString() +
-        widget.config.zoomLevel.toString() +
-        widget.referenceRanges.length.toString();
+    return '${widget.data.length}_${widget.config.zoomLevel}_${widget.referenceRanges.length}';
   }
 
   void _showTooltip(ProcessedBloodPressureData data, Offset position) {
@@ -156,7 +147,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
   }
 
   void _handleTapUp(TapUpDetails details) {
-    if (_chartArea == null) return;
+    if (_chartArea == null || _isDataEffectivelyEmpty()) return;
 
     final localPosition = details.localPosition;
 
@@ -182,41 +173,14 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
       }
     }
 
-    // Only update if selection actually changed
-    if (closestPoint != _lastSelectedData) {
-      // Provide haptic feedback only when selection changes
+    if (closestPoint != null) {
+      // Provide haptic feedback
       HapticFeedback.selectionClick();
 
-      _lastSelectedData = closestPoint;
-
-      // Call callback to update parent's state
-      widget.onDataSelected?.call(closestPoint);
-
-      if (closestPoint != null) {
-        widget.onDataPointTap?.call(closestPoint);
-        _showTooltip(closestPoint, localPosition);
-      } else {
-        _hideTooltip();
-      }
-
-      // No need to call setState here - the parent widget will handle it
-    }
-  }
-
-  void _handleLongPressStart(LongPressStartDetails details) {
-    if (_chartArea == null) return;
-
-    final localPosition = details.localPosition;
-    if (!_isPointInChartArea(localPosition)) return;
-
-    final selectedData = ChartCalculations.findDataPoint(
-      localPosition,
-      _chartArea!,
-      widget.data,
-    );
-
-    if (selectedData != null) {
-      widget.onLongPress?.call(selectedData);
+      widget.onDataPointTap?.call(closestPoint);
+      _showTooltip(closestPoint, localPosition);
+    } else {
+      _hideTooltip();
     }
   }
 
@@ -229,11 +193,26 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
         position.dy <= _chartArea!.bottom;
   }
 
+  // Check if all data points are effectively empty
+  bool _isDataEffectivelyEmpty() {
+    if (widget.data.isEmpty) return true;
+
+    // Check if all data points are marked as empty
+    bool allEmpty = widget.data.every((dataPoint) => dataPoint.isEmpty);
+    if (allEmpty) return true;
+
+    // Check if all data points have zero values
+    bool allZeros = widget.data.every((dataPoint) =>
+        (dataPoint.maxSystolic == 0 || dataPoint.isEmpty) &&
+        (dataPoint.maxDiastolic == 0 || dataPoint.isEmpty));
+
+    return allZeros;
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapUp: _handleTapUp,
-      onLongPressStart: _handleLongPressStart,
       child: RepaintBoundary(
         child: SizedBox(
           key: _chartKey,
@@ -253,23 +232,30 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (widget.data.isEmpty) {
+    // Use the improved empty data detection
+    if (_isDataEffectivelyEmpty()) {
       return Stack(
         children: [
+          // Draw empty chart background with grid
           CustomPaint(
             painter: BloodPressureChartPainter(
-              data: widget.data,
+              data: const [], // Use empty list for painter to properly draw grid
               style: widget.style,
               config: widget.config,
               animation: widget.animation,
-              selectedData: widget.selectedData,
               chartArea: _chartArea!,
               yAxisValues: _yAxisValues!,
               minValue: _minValue!,
               maxValue: _maxValue!,
             ),
           ),
-          const EmptyStateOverlay(),
+          // Draw empty state overlay with message
+          const Center(
+            child: EmptyStateOverlay(
+              message: 'No blood pressure data available',
+              icon: Icons.monitor_heart_outlined,
+            ),
+          ),
         ],
       );
     }
@@ -280,7 +266,6 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
         style: widget.style,
         config: widget.config,
         animation: widget.animation,
-        selectedData: widget.selectedData,
         chartArea: _chartArea!,
         yAxisValues: _yAxisValues!,
         minValue: _minValue!,
@@ -292,9 +277,12 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
   @override
   void didUpdateWidget(BloodPressureChartContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Force update y-axis when data or view config changes
     if (widget.data != oldWidget.data ||
         widget.config != oldWidget.config ||
         widget.referenceRanges != oldWidget.referenceRanges) {
+      _lastDataHash = ''; // Reset the hash to force update
       _initializeChartDimensions();
     }
   }
@@ -303,32 +291,5 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
   void dispose() {
     _hideTooltip();
     super.dispose();
-  }
-}
-
-class EmptyStateOverlay extends StatelessWidget {
-  const EmptyStateOverlay({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.show_chart,
-            size: 48,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No data available',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-          ),
-        ],
-      ),
-    );
   }
 }
