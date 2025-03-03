@@ -1,28 +1,28 @@
-// lib/blood_pressure/widgets/chart/chart_tooltip.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../models/date_range_type.dart';
+import '../../models/blood_pressure_category.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../styles/blood_pressure_chart_style.dart';
 
 class ChartTooltip extends StatefulWidget {
   final ProcessedBloodPressureData data;
-  final List<ProcessedBloodPressureData> rangeData;
   final DateRangeType viewType;
   final VoidCallback onClose;
   final BloodPressureChartStyle style;
   final Size screenSize;
+  final List<ProcessedBloodPressureData>? dataContext;
   final Function(ProcessedBloodPressureData)? onTooltipTap;
 
   const ChartTooltip({
     Key? key,
     required this.data,
-    required this.rangeData,
     required this.viewType,
     required this.onClose,
     required this.style,
     required this.screenSize,
+    this.dataContext,
     this.onTooltipTap,
   }) : super(key: key);
 
@@ -34,25 +34,64 @@ class _ChartTooltipState extends State<ChartTooltip>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+
+  // Tab state
+  int _selectedTab = 0;
+  final _tabNames = ['Overview', 'Details'];
+
+  @override
+  void initState() {
+    super.initState();
+    _setupAnimations();
+  }
+
+  void _setupAnimations() {
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    _animationController.forward();
+  }
+
   String _formatTimeRange() {
     final startDate = widget.data.startDate;
     final endDate = widget.data.endDate;
 
+    final isSameDay = startDate.year == endDate.year &&
+        startDate.month == endDate.month &&
+        startDate.day == endDate.day;
+
     switch (widget.viewType) {
       case DateRangeType.day:
-        if (widget.rangeData.length <= 1) {
+        if (isSameDay) {
           return DateFormat('MMM d, HH:mm').format(startDate);
         }
         return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
 
       case DateRangeType.week:
-        if (startDate.day == endDate.day) {
+        if (isSameDay) {
           return DateFormat('EEE, MMM d').format(startDate);
         }
         return '${DateFormat('EEE, MMM d').format(startDate)} - ${DateFormat('EEE, MMM d').format(endDate)}';
 
       case DateRangeType.month:
-        if (startDate.day == endDate.day) {
+        if (isSameDay) {
           return DateFormat('MMM d').format(startDate);
         }
         return '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d').format(endDate)}';
@@ -65,116 +104,271 @@ class _ChartTooltipState extends State<ChartTooltip>
     }
   }
 
-  Widget _buildMeasurementsList(BuildContext context) {
-    final measurements = widget.data.originalMeasurements;
-    if (measurements.isEmpty) return const SizedBox.shrink();
+  Color _getCategoryColor() {
+    return widget.style.getCategoryColor(widget.data.category);
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(height: 16),
-        Text(
-          '${widget.style.measurementsLabels} (${measurements.length})',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+  String _getCategoryText() {
+    switch (widget.data.category) {
+      case BloodPressureCategory.normal:
+        return 'Normal';
+      case BloodPressureCategory.elevated:
+        return 'Elevated';
+      case BloodPressureCategory.high:
+        return 'High';
+      case BloodPressureCategory.crisis:
+        return 'Crisis';
+      case BloodPressureCategory.low:
+        return 'Low';
+    }
+  }
+
+  Widget _buildCategoryBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getCategoryColor().withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _getCategoryColor().withOpacity(0.5),
+          width: 1,
         ),
-      ],
+      ),
+      child: Text(
+        _getCategoryText(),
+        style: TextStyle(
+          color: _getCategoryColor(),
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
-  Widget _buildSummarySection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.style.summaryLabels,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-        ),
-        const SizedBox(height: 12),
-        _buildSummaryRow(
-          context,
-          widget.style.systolic,
-          widget.data.originalMeasurements.length > 1
-              ? '${widget.data.minSystolic} - ${widget.data.maxSystolic}'
-              : '${widget.data.minSystolic}',
-          widget.style.systolicColor,
-        ),
-        const SizedBox(height: 8),
-        _buildSummaryRow(
-          context,
-          widget.style.diastolic,
-          widget.data.originalMeasurements.length > 1
-              ? '${widget.data.minDiastolic} - ${widget.data.maxDiastolic}'
-              : '${widget.data.minDiastolic}',
-          widget.style.diastolicColor,
-        ),
-        const SizedBox(height: 8),
-        if (widget.data.originalMeasurements.length > 1)
-          _buildSummaryRow(
-            context,
-            widget.style.averageLabels,
-            '${widget.data.avgSystolic.toStringAsFixed(1)}/${widget.data.avgDiastolic.toStringAsFixed(1)}',
-            null,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildSummaryRow(
-    BuildContext context,
-    String label,
-    String value,
-    Color? indicatorColor,
-  ) {
+  Widget _buildTabSelector() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            if (indicatorColor != null) ...[
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: indicatorColor,
-                  shape: BoxShape.circle,
+      children: List.generate(
+        _tabNames.length,
+        (index) => Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedTab = index),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: _selectedTab == index
+                        ? widget.style.selectedTabColor
+                        : Colors.transparent,
+                    width: 2,
+                  ),
                 ),
               ),
-              const SizedBox(width: 4),
-            ],
+              child: Text(
+                _tabNames[index],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _selectedTab == index
+                      ? widget.style.selectedTabColor
+                      : Colors.grey,
+                  fontWeight: _selectedTab == index
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverviewTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall,
+              widget.style.systolic,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: widget.style.systolicColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  widget.data.originalMeasurements.length > 1
+                      ? '${widget.data.minSystolic}-${widget.data.maxSystolic}'
+                      : widget.data.maxSystolic.toString(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              widget.style.diastolic,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: widget.style.diastolicColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  widget.data.originalMeasurements.length > 1
+                      ? '${widget.data.minDiastolic}-${widget.data.maxDiastolic}'
+                      : widget.data.minDiastolic.toString(),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
+        const SizedBox(height: 12),
+        if (widget.data.originalMeasurements.length > 1) ...[
+          const Divider(),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Average',
+                style: TextStyle(fontSize: 14),
+              ),
+              Text(
+                '${widget.data.avgSystolic.toStringAsFixed(1)}/${widget.data.avgDiastolic.toStringAsFixed(1)}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Readings',
+                style: TextStyle(fontSize: 14),
+              ),
+              Text(
+                widget.data.dataPointCount.toString(),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
+  Widget _buildDetailsTab() {
+    final measurements = widget.data.originalMeasurements;
+    if (measurements.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('No detailed data available'),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        for (final measurement in measurements.take(5)) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.grey.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  DateFormat('MMM d, HH:mm').format(measurement.date),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      '${measurement.systolic ?? measurement.effectiveMaxSystolic}/',
+                      style: TextStyle(
+                        color: widget.style.systolicColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${measurement.diastolic ?? measurement.effectiveMaxDiastolic}',
+                      style: TextStyle(
+                        color: widget.style.diastolicColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (measurements.length > 5) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              '+ ${measurements.length - 5} more readings',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-    _animationController.forward();
   }
 
   Future<void> dismiss() async {
@@ -191,64 +385,96 @@ class _ChartTooltipState extends State<ChartTooltip>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _fadeAnimation,
+      animation: _animationController,
       builder: (context, child) => Opacity(
         opacity: _fadeAnimation.value,
         child: Transform.scale(
-          scale: 0.95 + (0.05 * _fadeAnimation.value),
+          scale: _scaleAnimation.value,
           child: Card(
-            elevation: 8 * _fadeAnimation.value,
-            shadowColor: Colors.black26,
+            elevation: 8,
+            shadowColor: Colors.black38,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: GestureDetector(
-              onTap: () async {
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
                 widget.onTooltipTap?.call(widget.data);
-                await dismiss();
+                dismiss();
               },
               child: Container(
-                width: 200,
+                width: 260,
                 constraints: BoxConstraints(
-                  maxHeight: widget.screenSize.height * 0.6,
+                  maxHeight: widget.screenSize.height * 0.5,
                 ),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _formatTimeRange(),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 16),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: dismiss,
-                            ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Tooltip header with gradient background
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            _getCategoryColor().withOpacity(0.1),
+                            _getCategoryColor().withOpacity(0.05),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        _buildSummarySection(context),
-                        if (widget.data.originalMeasurements.length > 1)
-                          _buildMeasurementsList(context),
-                      ],
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _formatTimeRange(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 16),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: dismiss,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _buildCategoryBadge(),
+                        ],
+                      ),
                     ),
-                  ),
+                    // Tab selector
+                    _buildTabSelector(),
+                    // Tab content
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        physics: const BouncingScrollPhysics(),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: _selectedTab == 0
+                              ? _buildOverviewTab()
+                              : _buildDetailsTab(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
               ),
             ),

@@ -85,15 +85,32 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
           _minValue = minValue;
           _maxValue = maxValue;
           _lastDataHash = newDataHash;
+
+          // Mark cache as needing rebuild since chart dimensions changed
+          _hitTestCacheNeedsRebuild = true;
         });
       }
     }
   }
 
+  // More efficient hash calculation
   String _calculateDataHash() {
-    return widget.data.length.toString() +
-        widget.config.zoomLevel.toString() +
-        widget.referenceRanges.length.toString();
+    final buffer = StringBuffer();
+    buffer.write(widget.data.length);
+    buffer.write('_');
+    buffer.write(widget.config.zoomLevel);
+    buffer.write('_');
+    buffer.write(widget.referenceRanges.length);
+
+    // Only include critical data for hashing
+    if (widget.data.isNotEmpty) {
+      buffer.write('_');
+      buffer.write(widget.data.first.hashCode);
+      buffer.write('_');
+      buffer.write(widget.data.last.hashCode);
+    }
+
+    return buffer.toString();
   }
 
   void _showTooltip(ProcessedBloodPressureData data, Offset position) {
@@ -119,7 +136,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
         top: tooltipPosition.dy,
         child: ChartTooltip(
           data: data,
-          rangeData: _getRangeData(data),
+          // rangeData: _getRangeData(data),
           viewType: widget.config.viewType,
           onClose: _hideTooltip,
           style: widget.style,
@@ -140,19 +157,60 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     return baseHeight + (measurementHeight * measurementsCount.clamp(0, 5));
   }
 
+  // Cached nearby data points to avoid expensive filtering on every tooltip display
+  final Map<ProcessedBloodPressureData, List<ProcessedBloodPressureData>>
+      _rangeDataCache = {};
+
   List<ProcessedBloodPressureData> _getRangeData(
       ProcessedBloodPressureData data) {
-    return widget.data.where((measurement) {
+    // Check cache first
+    if (_rangeDataCache.containsKey(data)) {
+      return _rangeDataCache[data]!;
+    }
+
+    // Filter data points within time range
+    final results = widget.data.where((measurement) {
       return measurement.startDate
               .isAfter(data.startDate.subtract(const Duration(minutes: 1))) &&
           measurement.startDate
               .isBefore(data.endDate.add(const Duration(minutes: 1)));
     }).toList();
+
+    // Cache results
+    _rangeDataCache[data] = results;
+
+    return results;
   }
 
   void _hideTooltip() {
     _tooltipOverlay?.remove();
     _tooltipOverlay = null;
+  }
+
+  // Cached map from x-positions to data points for fast hit testing
+  final Map<int, (double x, ProcessedBloodPressureData data)> _hitTestCache =
+      {};
+  bool _hitTestCacheNeedsRebuild = true;
+
+  void _rebuildHitTestCache() {
+    if (_chartArea == null) return;
+
+    _hitTestCache.clear();
+
+    // Build a spatial index for faster hit testing
+    for (int i = 0; i < widget.data.length; i++) {
+      final entry = widget.data[i];
+      if (entry.isEmpty) continue;
+
+      final x = ChartCalculations.calculateXPosition(
+          i, widget.data.length, _chartArea!);
+
+      // Round to integer for faster lookups later
+      final xKey = x.round();
+      _hitTestCache[xKey] = (x, entry);
+    }
+
+    _hitTestCacheNeedsRebuild = false;
   }
 
   void _handleTapUp(TapUpDetails details) {
@@ -163,23 +221,38 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     // Check if tap is in chart area
     if (!_isPointInChartArea(localPosition)) return;
 
-    // Find closest data point based on x-axis proximity only
+    // Rebuild cache if needed
+    if (_hitTestCacheNeedsRebuild) {
+      _rebuildHitTestCache();
+    }
+
+    // Fast hit test using spatial index
     ProcessedBloodPressureData? closestPoint;
     double minXDistance = double.infinity;
-    const hitTestThreshold = 40.0;
+    // Reduced hit test threshold for better precision
+    const hitTestThreshold = 30.0;
 
-    for (int i = 0; i < widget.data.length; i++) {
-      final entry = widget.data[i];
-      if (entry.isEmpty) continue;
+    // Search within a reasonable pixel range around the tap point
+    final searchRange = 30;
+    final targetX = localPosition.dx.round();
 
-      final x = ChartCalculations.calculateXPosition(
-          i, widget.data.length, _chartArea!);
-      final xDistance = (localPosition.dx - x).abs();
+    for (int offset = 0; offset <= searchRange; offset++) {
+      // Check points on both sides of tap point
+      for (final xKey in [targetX + offset, targetX - offset]) {
+        final entry = _hitTestCache[xKey];
+        if (entry != null) {
+          final (x, data) = entry;
+          final xDistance = (localPosition.dx - x).abs();
 
-      if (xDistance < minXDistance && xDistance < hitTestThreshold) {
-        minXDistance = xDistance;
-        closestPoint = entry;
+          if (xDistance < minXDistance && xDistance < hitTestThreshold) {
+            minXDistance = xDistance;
+            closestPoint = data;
+          }
+        }
       }
+
+      // Early exit if found a close point
+      if (minXDistance < 15.0) break;
     }
 
     // Only update if selection actually changed
@@ -198,8 +271,6 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
       } else {
         _hideTooltip();
       }
-
-      // No need to call setState here - the parent widget will handle it
     }
   }
 
@@ -292,10 +363,32 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
   @override
   void didUpdateWidget(BloodPressureChartContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.data != oldWidget.data ||
-        widget.config != oldWidget.config ||
-        widget.referenceRanges != oldWidget.referenceRanges) {
+
+    // Check if data-affecting properties changed
+    final dataChanged = widget.data != oldWidget.data;
+    final configChanged = widget.config != oldWidget.config;
+    final rangesChanged = widget.referenceRanges != oldWidget.referenceRanges;
+
+    // Only recalculate dimensions if data-affecting properties changed
+    if (dataChanged || configChanged || rangesChanged) {
       _initializeChartDimensions();
+
+      // Clear caches when data changes
+      if (dataChanged) {
+        _rangeDataCache.clear();
+        _hitTestCacheNeedsRebuild = true;
+      }
+    }
+
+    // Handle selection change separately without full recalculation
+    if (widget.selectedData != oldWidget.selectedData) {
+      // No need to rebuild everything on selection change
+      _lastSelectedData = widget.selectedData;
+    }
+
+    // Handle animation changes separately
+    if (widget.animation != oldWidget.animation) {
+      // Animation changed but we don't need to rebuild dimensions
     }
   }
 
