@@ -1,6 +1,6 @@
-// lib/models/processed_heart_rate_data.dart
-import 'heart_rate_data.dart';
-import 'heart_rate_zone.dart';
+// lib/heart_rate/models/processed_heart_rate_data.dart
+import '../models/heart_rate_data.dart';
+import '../models/heart_rate_range.dart';
 
 class ProcessedHeartRateData {
   final DateTime startDate;
@@ -16,7 +16,7 @@ class ProcessedHeartRateData {
   final double? hrv; // Heart Rate Variability
   final int? restingRate;
 
-  ProcessedHeartRateData({
+  const ProcessedHeartRateData({
     required this.startDate,
     required this.endDate,
     required this.minValue,
@@ -45,23 +45,59 @@ class ProcessedHeartRateData {
     );
   }
 
-  HeartRateZone get zone {
-    if (avgValue < 60) return HeartRateZone.low;
-    if (avgValue < 100) return HeartRateZone.normal;
-    if (avgValue < 140) return HeartRateZone.elevated;
-    return HeartRateZone.high;
+  /// Get the heart rate zone name
+  String get zoneName => HeartRateRange.getZoneName(avgValue);
+
+  /// Get the heart rate zone description
+  String get zoneDescription => HeartRateRange.getZoneDescription(avgValue);
+
+  /// Get range width (max - min)
+  int get rangeWidth => maxValue - minValue;
+
+  /// Check if this point has a significant range
+  bool get hasSignificantRange => rangeWidth > 5;
+
+  /// Check if this point has HRV data
+  bool get hasHrv => hrv != null && hrv! > 0;
+
+  /// Check if this point has resting rate data
+  bool get hasRestingRate => restingRate != null && restingRate! > 0;
+
+  /// Check if this has any data (not empty)
+  bool get hasData => !isEmpty && dataPointCount > 0;
+
+  /// Get the formatted date string
+  String getFormattedDate(String format) {
+    // Format the date using the provided format
+    final year = startDate.year.toString();
+    final month = startDate.month.toString().padLeft(2, '0');
+    final day = startDate.day.toString().padLeft(2, '0');
+    final hour = startDate.hour.toString().padLeft(2, '0');
+    final minute = startDate.minute.toString().padLeft(2, '0');
+
+    return format
+        .replaceAll('yyyy', year)
+        .replaceAll('MM', month)
+        .replaceAll('dd', day)
+        .replaceAll('HH', hour)
+        .replaceAll('mm', minute);
   }
 
-  String get zoneDescription {
-    switch (zone) {
-      case HeartRateZone.low:
-        return 'Low Heart Rate (Bradycardia)';
-      case HeartRateZone.normal:
-        return 'Normal Heart Rate';
-      case HeartRateZone.elevated:
-        return 'Elevated Heart Rate (Mild Tachycardia)';
-      case HeartRateZone.high:
-        return 'High Heart Rate (Tachycardia)';
-    }
-  }
+  /// Check if this data point is equal to another
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProcessedHeartRateData &&
+          runtimeType == other.runtimeType &&
+          startDate == other.startDate &&
+          endDate == other.endDate &&
+          minValue == other.minValue &&
+          maxValue == other.maxValue;
+
+  @override
+  int get hashCode =>
+      startDate.hashCode ^
+      endDate.hashCode ^
+      minValue.hashCode ^
+      maxValue.hashCode;
 }

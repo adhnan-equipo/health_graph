@@ -1,388 +1,648 @@
-// lib/painters/heart_rate_chart_painter.dart
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../models/date_range_type.dart';
 import '../../utils/date_formatter.dart';
-import '../models/heart_rate_chart_config.dart';
+import '../models/heart_rate_range.dart';
 import '../models/processed_heart_rate_data.dart';
 import '../styles/heart_rate_chart_style.dart';
 
 class HeartRateChartPainter extends CustomPainter {
   final List<ProcessedHeartRateData> data;
   final HeartRateChartStyle style;
-  final HeartRateChartConfig config;
   final Animation<double> animation;
-  final ProcessedHeartRateData? selectedData;
   final Rect chartArea;
   final List<int> yAxisValues;
   final double minValue;
   final double maxValue;
+  final bool showGrid;
+  final bool showRanges;
+  final DateRangeType viewType;
+  final ProcessedHeartRateData? selectedData;
 
-  static const rangeDefinitions = [
-    (180.0, 300.0, 'Hypertensive Crisis', Color(0xFFE53E3E)), // Red
-    (140.0, 180.0, 'Stage 2 Hypertension', Color(0xFFF6AD55)), // Orange
-    (130.0, 140.0, 'Stage 1 Hypertension', Color(0xFFFBD38D)), // Light Orange
-    (120.0, 130.0, 'Elevated', Color(0xFFFAF089)), // Yellow
-    (90.0, 120.0, 'Normal', Color(0xFF48BB78)), // Green
-    (0.0, 90.0, 'Low', Color(0xFF3182CE)), // Blue
-  ];
+  // Reusable objects for better performance
+  final TextPainter _textPainter = TextPainter(
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+  );
+  final Paint _linePaint = Paint()..style = PaintingStyle.stroke;
+  final Paint _fillPaint = Paint()..style = PaintingStyle.fill;
+  final Paint _pointPaint = Paint();
+
+  // Cache for performance optimization
+  String _lastDataHash = '';
+  Path? _heartRatePath;
+  Path? _restingRatePath;
+  Path? _maxRatePath;
+  Path? _minRatePath;
 
   HeartRateChartPainter({
     required this.data,
     required this.style,
-    required this.config,
     required this.animation,
     required this.chartArea,
     required this.yAxisValues,
     required this.minValue,
     required this.maxValue,
+    this.showGrid = true,
+    this.showRanges = true,
+    required this.viewType,
     this.selectedData,
   }) : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
+    if (data.isEmpty) {
+      _drawEmptyState(canvas, size);
+      return;
+    }
 
+    canvas.save();
+    canvas.clipRect(chartArea);
+
+    // Draw background
     _drawBackground(canvas);
-    _drawZones(canvas);
-    if (config.showGrid) {
+
+    // Draw ranges if enabled
+    if (showRanges) {
+      _drawReferenceRanges(canvas);
+    }
+
+    // Draw grid if enabled
+    if (showGrid) {
       _drawGrid(canvas);
     }
-    _drawHeartRateLine(canvas);
-    if (config.showLabels) {
-      _drawAxisLabels(canvas);
-    }
+
+    canvas.restore();
+
+    // Draw axis labels
+    _drawAxisLabels(canvas);
+
+    canvas.save();
+    canvas.clipRect(chartArea);
+
+    // Draw heart rate lines and points
+    _drawHeartRateData(canvas);
+
+    canvas.restore();
   }
 
   void _drawBackground(Canvas canvas) {
     canvas.drawRect(
       chartArea,
-      Paint()..color = Colors.white.withValues(alpha: 0.8),
+      Paint()..color = style.backgroundColor.withOpacity(0.1 * animation.value),
     );
   }
 
-  void _drawZones(Canvas canvas) {
-    // Draw range backgrounds within chart bounds
-    for (var range in rangeDefinitions) {
-      final rangeTop = _getYPosition(range.$2.clamp(minValue, maxValue));
-      final rangeBottom = _getYPosition(range.$1.clamp(minValue, maxValue));
+  void _drawEmptyState(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = style.gridLineColor.withOpacity(0.1 * animation.value)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
 
-      // Draw range background
-      canvas.drawRect(
-        Rect.fromLTRB(chartArea.left, rangeTop, chartArea.right, rangeBottom),
-        Paint()..color = range.$4.withValues(alpha: 0.1),
+    // Draw animated grid pattern
+    const spacing = 20.0;
+    for (var x = 0.0; x < size.width; x += spacing) {
+      final progress = (x / size.width * animation.value).clamp(0.0, 1.0);
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height * progress),
+        paint,
+      );
+    }
+    for (var y = 0.0; y < size.height; y += spacing) {
+      final progress = (y / size.height * animation.value).clamp(0.0, 1.0);
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width * progress, y),
+        paint,
+      );
+    }
+  }
+
+  void _drawReferenceRanges(Canvas canvas) {
+    final zones = [
+      (
+        HeartRateRange.highMax,
+        HeartRateRange.highMin,
+        style.highZoneColor,
+        'High'
+      ),
+      (
+        HeartRateRange.elevatedMax,
+        HeartRateRange.elevatedMin,
+        style.elevatedZoneColor,
+        'Elevated'
+      ),
+      (
+        HeartRateRange.normalMax,
+        HeartRateRange.normalMin,
+        style.normalZoneColor,
+        'Normal'
+      ),
+      (HeartRateRange.lowMax, HeartRateRange.lowMin, style.lowZoneColor, 'Low'),
+    ];
+
+    for (var zone in zones) {
+      // Only draw zones visible in the chart
+      if (zone.$1 < minValue && zone.$2 < minValue) continue;
+      if (zone.$1 > maxValue && zone.$2 > maxValue) continue;
+
+      // Calculate y positions, clamping to chart bounds
+      final topValue = min(zone.$1, maxValue);
+      final bottomValue = max(zone.$2, minValue);
+
+      final topY = _getYPosition(topValue.toDouble());
+      final bottomY = _getYPosition(bottomValue.toDouble());
+
+      // Create animated rect
+      final center = Offset(
+        chartArea.center.dx,
+        (topY + bottomY) / 2,
       );
 
-      // Check if any data points fall within this range
-      final hasDataInRange = data.any((d) =>
-          !d.isEmpty && d.avgValue >= range.$1 && d.avgValue <= range.$2);
+      final animatedRect = Rect.fromCenter(
+        center: center,
+        width: chartArea.width * animation.value,
+        height: (bottomY - topY),
+      );
 
-      if (hasDataInRange) {
-        // Create centered label
-        final labelRect = Rect.fromLTRB(
-          chartArea.left,
-          rangeTop,
-          chartArea.right,
-          rangeBottom,
-        );
+      // Draw zone background
+      canvas.drawRect(
+        animatedRect,
+        Paint()..color = zone.$3.withOpacity(0.1 * animation.value),
+      );
 
-        _drawRangeLabel(
-          canvas,
-          labelRect,
-          range.$3,
-          range.$4,
-        );
+      // Draw zone label for zones that occupy enough vertical space
+      if ((bottomY - topY) >= 30) {
+        _drawZoneLabel(canvas, zone.$4, zone.$3, animatedRect);
       }
     }
   }
 
-  void _drawHeartRateLine(Canvas canvas) {
+  void _drawZoneLabel(Canvas canvas, String text, Color color, Rect zoneRect) {
+    _textPainter
+      ..text = TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color.withOpacity(0.7 * animation.value),
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      )
+      ..layout();
+
+    // Position at the beginning of the zone
+    final labelX = chartArea.left + 8;
+    final labelY = zoneRect.center.dy - (_textPainter.height / 2);
+
+    _textPainter.paint(canvas, Offset(labelX, labelY));
+  }
+
+  void _drawGrid(Canvas canvas) {
+    final paint = Paint()
+      ..color = style.gridLineColor.withOpacity(0.15 * animation.value)
+      ..strokeWidth = 0.5;
+
+    // Draw horizontal grid lines
+    for (var value in yAxisValues) {
+      final y = _getYPosition(value.toDouble());
+
+      final start = Offset(chartArea.left, y);
+      final end = Offset(
+        ui.lerpDouble(chartArea.left, chartArea.right, animation.value)!,
+        y,
+      );
+
+      canvas.drawLine(start, end, paint);
+    }
+
+    // Draw vertical grid lines (time divisions)
+    final verticalCount = _getVerticalGridCount();
+    final step = chartArea.width / verticalCount;
+
+    for (var i = 0; i <= verticalCount; i++) {
+      final x = chartArea.left + (i * step);
+      final progress = (i / verticalCount * animation.value).clamp(0.0, 1.0);
+
+      canvas.drawLine(
+        Offset(x, chartArea.top),
+        Offset(x, ui.lerpDouble(chartArea.top, chartArea.bottom, progress)!),
+        paint,
+      );
+    }
+  }
+
+  int _getVerticalGridCount() {
+    switch (viewType) {
+      case DateRangeType.day:
+        return 6; // Hours
+      case DateRangeType.week:
+        return 7; // Days
+      case DateRangeType.month:
+        return 4; // Weeks
+      case DateRangeType.year:
+        return 12; // Months
+    }
+  }
+
+  void _drawAxisLabels(Canvas canvas) {
+    // Draw y-axis labels
+    for (var value in yAxisValues) {
+      final y = _getYPosition(value.toDouble());
+      final opacity = animation.value.clamp(0.0, 1.0);
+
+      _textPainter
+        ..text = TextSpan(
+          text: value.toString(),
+          style: style.labelStyle.copyWith(
+            color: style.labelColor.withOpacity(opacity),
+          ),
+        )
+        ..layout();
+
+      // Animate label position
+      final xOffset = chartArea.left - _textPainter.width - 8;
+      final animatedXOffset =
+          ui.lerpDouble(chartArea.left, xOffset, animation.value)!;
+
+      _textPainter.paint(
+        canvas,
+        Offset(animatedXOffset, y - _textPainter.height / 2),
+      );
+    }
+
+    // Draw x-axis (time) labels
+    final labelStep = _calculateLabelStep();
+
+    for (var i = 0; i < data.length; i += labelStep) {
+      if (i >= data.length) continue;
+
+      final x = _getXPosition(i);
+      final label = DateFormatter.format(data[i].startDate, viewType);
+      final opacity = animation.value.clamp(0.0, 1.0);
+
+      _textPainter
+        ..text = TextSpan(
+          text: label,
+          style: style.labelStyle.copyWith(
+            color: style.labelColor.withOpacity(opacity),
+          ),
+        )
+        ..layout();
+
+      // Animate label position
+      final yOffset = chartArea.bottom + 8;
+      final animatedYOffset =
+          ui.lerpDouble(chartArea.bottom, yOffset, animation.value)!;
+
+      _textPainter.paint(
+        canvas,
+        Offset(x - _textPainter.width / 2, animatedYOffset),
+      );
+    }
+  }
+
+  int _calculateLabelStep() {
+    if (data.length <= 7) return 1;
+
+    switch (viewType) {
+      case DateRangeType.day:
+        return (data.length / 6).round().clamp(1, data.length);
+      case DateRangeType.week:
+        return 1;
+      case DateRangeType.month:
+        return (data.length / 8).round().clamp(1, 4);
+      case DateRangeType.year:
+        return (data.length / 12).round().clamp(1, 3);
+    }
+  }
+
+  void _drawHeartRateData(Canvas canvas) {
     if (data.isEmpty) return;
 
-    final validPoints = _getValidPoints();
-    if (validPoints.isEmpty) return;
+    // Build paths if data has changed
+    final currentHash =
+        '${data.length}_${data.first.hashCode}_${animation.value}';
+    if (_lastDataHash != currentHash) {
+      _buildPaths();
+      _lastDataHash = currentHash;
+    }
 
-    // Draw area under the line
-    final areaPath = Path();
-    areaPath.moveTo(validPoints.first.dx, chartArea.bottom);
+    // Draw range area (shaded area between min and max)
+    _drawRangeArea(canvas);
 
-    // Create smooth line path
-    final linePath = Path();
-    linePath.moveTo(validPoints.first.dx, validPoints.first.dy);
+    // Draw main heart rate line
+    if (_heartRatePath != null) {
+      _linePaint
+        ..color = style.primaryColor.withOpacity(0.8 * animation.value)
+        ..strokeWidth = style.lineThickness
+        ..strokeCap = StrokeCap.round;
 
-    for (var i = 0; i < validPoints.length; i++) {
-      if (i == 0) {
-        areaPath.lineTo(validPoints[i].dx, validPoints[i].dy);
-      } else {
-        final previous = validPoints[i - 1];
-        final current = validPoints[i];
+      canvas.drawPath(_heartRatePath!, _linePaint);
+    }
 
-        if (_isPointConnected(previous, current)) {
-          // Calculate control points for smooth curve
-          final controlPoint1 = Offset(
-            previous.dx + (current.dx - previous.dx) / 3,
-            previous.dy,
-          );
-          final controlPoint2 = Offset(
-            previous.dx + (current.dx - previous.dx) * 2 / 3,
-            current.dy,
-          );
+    // Draw resting heart rate line if exists
+    if (_restingRatePath != null) {
+      _linePaint
+        ..color = style.restingRateColor.withOpacity(0.6 * animation.value)
+        ..strokeWidth = style.lineThickness - 0.5
+        ..strokeCap = StrokeCap.round;
+      // ..strokeDashArray = [3, 3];
 
-          linePath.cubicTo(
-            controlPoint1.dx,
-            controlPoint1.dy,
-            controlPoint2.dx,
-            controlPoint2.dy,
-            current.dx,
-            current.dy,
-          );
+      canvas.drawPath(_restingRatePath!, _linePaint);
+      // _linePaint.strokeDashArray = null;
+    }
 
-          areaPath.cubicTo(
-            controlPoint1.dx,
-            controlPoint1.dy,
-            controlPoint2.dx,
-            controlPoint2.dy,
-            current.dx,
-            current.dy,
-          );
-        } else {
-          areaPath.lineTo(previous.dx, chartArea.bottom);
-          areaPath.moveTo(current.dx, chartArea.bottom);
-          areaPath.lineTo(current.dx, current.dy);
+    // Draw data points
+    _drawDataPoints(canvas);
+  }
 
-          linePath.moveTo(current.dx, current.dy);
+  void _buildPaths() {
+    // Initialize paths
+    _heartRatePath = Path();
+    _restingRatePath = Path();
+    _maxRatePath = Path();
+    _minRatePath = Path();
+
+    var hasValidHeartRate = false;
+    var hasValidRestingRate = false;
+    var hasValidRangeData = false;
+
+    // Collect points for smoother curves
+    final List<Offset> heartRatePoints = [];
+    final List<Offset> restingRatePoints = [];
+    final List<Offset> maxRatePoints = [];
+    final List<Offset> minRatePoints = [];
+
+    // Process each data point
+    for (var i = 0; i < data.length; i++) {
+      final entry = data[i];
+      if (entry.isEmpty) continue;
+
+      final x = _getXPosition(i);
+
+      // Heart rate (average)
+      final heartRateY = _getYPosition(entry.avgValue);
+      heartRatePoints.add(Offset(x, heartRateY));
+
+      // Start heart rate path if first valid point
+      if (!hasValidHeartRate) {
+        _heartRatePath!.moveTo(x, heartRateY);
+        hasValidHeartRate = true;
+      }
+
+      // Resting rate if available
+      if (entry.restingRate != null) {
+        final restingRateY = _getYPosition(entry.restingRate!.toDouble());
+        restingRatePoints.add(Offset(x, restingRateY));
+
+        if (!hasValidRestingRate) {
+          _restingRatePath!.moveTo(x, restingRateY);
+          hasValidRestingRate = true;
+        }
+      }
+
+      // Range data (min/max)
+      if (entry.isRangeData) {
+        final maxRateY = _getYPosition(entry.maxValue.toDouble());
+        final minRateY = _getYPosition(entry.minValue.toDouble());
+
+        maxRatePoints.add(Offset(x, maxRateY));
+        minRatePoints.add(Offset(x, minRateY));
+
+        if (!hasValidRangeData) {
+          _maxRatePath!.moveTo(x, maxRateY);
+          _minRatePath!.moveTo(x, minRateY);
+          hasValidRangeData = true;
         }
       }
     }
 
-    areaPath.lineTo(validPoints.last.dx, chartArea.bottom);
-    areaPath.close();
-
-    // Draw area with gradient
-    final gradient = ui.Gradient.linear(
-      Offset(0, chartArea.top),
-      Offset(0, chartArea.bottom),
-      [
-        style.primaryColor.withValues(alpha: 0.15),
-        style.primaryColor.withValues(alpha: 0.02),
-      ],
-    );
-
-    canvas.drawPath(
-      areaPath,
-      Paint()..shader = gradient,
-    );
-
-    // Draw the line
-    canvas.drawPath(
-      linePath,
-      Paint()
-        ..color = style.primaryColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Draw points
-    for (var point in validPoints) {
-      // White outline
-      canvas.drawCircle(
-        point,
-        4.5,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.fill,
-      );
-
-      // Colored center
-      canvas.drawCircle(
-        point,
-        3.5,
-        Paint()
-          ..color = style.primaryColor
-          ..style = PaintingStyle.fill,
-      );
+    // Create smooth curves for the paths using the collected points
+    _createSmoothPath(_heartRatePath!, heartRatePoints);
+    if (hasValidRestingRate) {
+      _createSmoothPath(_restingRatePath!, restingRatePoints);
+    }
+    if (hasValidRangeData) {
+      _createSmoothPath(_maxRatePath!, maxRatePoints);
+      _createSmoothPath(_minRatePath!, minRatePoints);
     }
   }
 
-  void _drawGrid(Canvas canvas) {
-    final gridPaint = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.2)
-      ..strokeWidth = 0.5;
+  void _createSmoothPath(Path path, List<Offset> points) {
+    if (points.length < 2) return;
 
-    // Draw horizontal grid lines with values
-    for (var value in yAxisValues) {
-      final y = _getYPosition(value.toDouble());
-      canvas.drawLine(
-        Offset(chartArea.left, y),
-        Offset(chartArea.right, y),
-        gridPaint,
-      );
+    // Start from the first point
+    path.moveTo(points.first.dx, points.first.dy);
+
+    // If only two points, just draw a line
+    if (points.length == 2) {
+      path.lineTo(points[1].dx, points[1].dy);
+      return;
     }
 
-    // Draw vertical grid lines
-    final xStep = chartArea.width / 6; // 6 vertical divisions
-    for (var i = 0; i <= 6; i++) {
-      final x = chartArea.left + (i * xStep);
-      canvas.drawLine(
-        Offset(x, chartArea.top),
-        Offset(x, chartArea.bottom),
-        gridPaint,
-      );
+    // Use cubic bezier curves for smoother path
+    for (var i = 0; i < points.length - 1; i++) {
+      if (i == 0) {
+        // First segment
+        final p0 = points[i];
+        final p1 = points[i + 1];
+
+        // Simple control points for first segment
+        final c1 = Offset(p0.dx + (p1.dx - p0.dx) / 3, p0.dy);
+        final c2 = Offset(p0.dx + 2 * (p1.dx - p0.dx) / 3, p1.dy);
+
+        path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p1.dx, p1.dy);
+      } else if (i < points.length - 2) {
+        // Middle segments - use points before and after for better smoothing
+        final p0 = points[i - 1];
+        final p1 = points[i];
+        final p2 = points[i + 1];
+        final p3 = points[i + 2];
+
+        // Calculate control points based on surrounding points
+        final xDiff = (p2.dx - p0.dx) / 4;
+        final c1 = Offset(p1.dx + xDiff, p1.dy);
+        final c2 = Offset(p2.dx - (p3.dx - p1.dx) / 4, p2.dy);
+
+        path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy);
+      } else {
+        // Last segment
+        final p0 = points[i];
+        final p1 = points[i + 1];
+
+        // Simple control points for last segment
+        final c1 = Offset(p0.dx + (p1.dx - p0.dx) / 3, p0.dy);
+        final c2 = Offset(p0.dx + 2 * (p1.dx - p0.dx) / 3, p1.dy);
+
+        path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p1.dx, p1.dy);
+      }
     }
   }
 
-  List<Offset> _getValidPoints() {
-    final points = <Offset>[];
-    if (data.length <= 1) return points;
+  void _drawRangeArea(Canvas canvas) {
+    if (_maxRatePath == null || _minRatePath == null) return;
 
-    final xStep = chartArea.width / (data.length - 1);
+    // Create a combined path for the area
+    final areaPath = Path();
 
-    for (var i = 0; i < data.length; i++) {
-      if (!data[i].isEmpty) {
-        final x = chartArea.left + (i * xStep);
-        final y = _getYPosition(data[i].avgValue);
-        points.add(Offset(x, y));
+    // Add max path
+    areaPath.addPath(_maxRatePath!, Offset.zero);
+
+    // Create the bottom part by adding min path in reverse
+    final reversedMinPath = Path();
+    final minMetrics = _minRatePath!.computeMetrics();
+
+    for (final metric in minMetrics) {
+      final length = metric.length;
+      final pathSegment = metric.extractPath(0, length);
+      // Add the path in reverse order
+      for (double dist = length; dist >= 0; dist -= 1) {
+        try {
+          final pos = metric.getTangentForOffset(dist)?.position;
+          if (pos != null) {
+            if (dist == length) {
+              reversedMinPath.moveTo(pos.dx, pos.dy);
+            } else {
+              reversedMinPath.lineTo(pos.dx, pos.dy);
+            }
+          }
+        } catch (e) {
+          // Handle potential errors from getTangentForOffset
+        }
       }
     }
 
-    return points;
-  }
+    // Add the reversed min path to the area path
+    areaPath.addPath(reversedMinPath, Offset.zero);
 
-  bool _isPointConnected(Offset point1, Offset point2) {
-    // Consider points connected if they're not too far apart
-    final maxGap = chartArea.width / (data.length - 1) * 1.5;
-    return (point2.dx - point1.dx).abs() <= maxGap;
-  }
+    // Close the path
+    areaPath.close();
 
-  Path _createAnimatedPath(Path path, double progress) {
-    final metrics = path.computeMetrics();
-    final animatedPath = Path();
-
-    for (final metric in metrics) {
-      final length = metric.length;
-      animatedPath.addPath(
-        metric.extractPath(0, length * progress),
-        Offset.zero,
-      );
-    }
-
-    return animatedPath;
-  }
-
-  void _drawRangeLabel(Canvas canvas, Rect rect, String text, Color color) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color.withValues(alpha: 0.7),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
+    // Create gradient for the range area
+    final rangeGradient = ui.Gradient.linear(
+      Offset(0, chartArea.top),
+      Offset(0, chartArea.bottom),
+      [
+        style.primaryColor.withOpacity(0.2 * animation.value),
+        style.primaryColor.withOpacity(0.05 * animation.value),
+      ],
     );
 
-    textPainter.layout();
+    // Draw the range area
+    _fillPaint
+      ..shader = rangeGradient
+      ..style = PaintingStyle.fill;
 
-    // Calculate centered position
-    final bgWidth = textPainter.width + 16;
-    final bgHeight = textPainter.height + 8;
-    final bgLeft = chartArea.left + (chartArea.width - bgWidth) / 2;
-    final bgTop = rect.center.dy - bgHeight / 2;
+    canvas.drawPath(areaPath, _fillPaint);
 
-    // Draw background
-    canvas.drawRect(
-      Rect.fromLTWH(bgLeft, bgTop, bgWidth, bgHeight),
-      Paint()..color = Colors.white.withValues(alpha: 0.8),
-    );
-
-    // Draw text centered
-    textPainter.paint(
-      canvas,
-      Offset(
-        bgLeft + 8,
-        bgTop + 4,
-      ),
-    );
+    // Reset shader
+    _fillPaint.shader = null;
   }
 
-  void _drawAxisLabels(Canvas canvas) {
-    final textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    );
+  void _drawDataPoints(Canvas canvas) {
+    for (var i = 0; i < data.length; i++) {
+      final entry = data[i];
+      if (entry.isEmpty) continue;
 
-    // Y-axis labels
-    for (var value in yAxisValues) {
-      textPainter
-        ..text = TextSpan(
-          text: value.toString(),
-          style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 10,
-          ),
-        )
-        ..layout();
+      final x = _getXPosition(i);
+      final y = _getYPosition(entry.avgValue);
 
-      textPainter.paint(
-        canvas,
-        Offset(
-          chartArea.left - textPainter.width - 8,
-          _getYPosition(value.toDouble()) - textPainter.height / 2,
-        ),
+      // Determine if this is the selected point
+      final isSelected = selectedData == entry;
+
+      // Base point radius
+      var pointRadius = style.pointRadius;
+
+      // Larger radius for selected point
+      if (isSelected) {
+        pointRadius = style.selectedPointRadius;
+      }
+
+      // Apply animation to radius
+      final animatedRadius = pointRadius * animation.value;
+
+      // Draw outer glow for selected point
+      if (isSelected) {
+        _pointPaint
+          ..color = style.selectedColor.withOpacity(0.3 * animation.value)
+          ..style = PaintingStyle.fill
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+        canvas.drawCircle(Offset(x, y), animatedRadius * 1.5, _pointPaint);
+        _pointPaint.maskFilter = null;
+      }
+
+      // Draw white outline
+      _pointPaint
+        ..color = Colors.white.withOpacity(animation.value)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(Offset(x, y), animatedRadius + 1, _pointPaint);
+
+      // Draw colored center
+      _pointPaint
+        ..color = (isSelected ? style.selectedColor : style.primaryColor)
+            .withOpacity(animation.value)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(Offset(x, y), animatedRadius, _pointPaint);
+
+      // Add highlight for 3D effect
+      _pointPaint
+        ..color = Colors.white.withOpacity(0.6 * animation.value)
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(
+        Offset(x - animatedRadius * 0.3, y - animatedRadius * 0.3),
+        animatedRadius * 0.3,
+        _pointPaint,
       );
-    }
 
-    // X-axis labels using HeartRateDateFormatter
-    final labelIndices = _calculateLabelIndices();
-    for (var i in labelIndices) {
-      if (i >= data.length) continue;
-
-      final x = chartArea.left + (i * chartArea.width / (data.length - 1));
-      final label = DateFormatter.format(
-        data[i].startDate,
-        config.viewType,
-      );
-
-      textPainter
-        ..text = TextSpan(
-          text: label,
-          style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 10,
-          ),
-        )
-        ..layout();
-
-      textPainter.paint(
-        canvas,
-        Offset(
-          x - textPainter.width / 2,
-          chartArea.bottom + 8,
-        ),
-      );
+      // For range data, optionally draw min and max points
+      if (entry.isRangeData && entry.dataPointCount > 1) {
+        _drawRangeEndpoints(canvas, x, entry, animatedRadius * 0.7);
+      }
     }
   }
 
-  List<int> _calculateLabelIndices() {
-    if (data.length <= 1) return [0];
-    if (data.length <= 7) return List.generate(data.length, (i) => i);
+  void _drawRangeEndpoints(
+      Canvas canvas, double x, ProcessedHeartRateData entry, double radius) {
+    final maxY = _getYPosition(entry.maxValue.toDouble());
+    final minY = _getYPosition(entry.minValue.toDouble());
 
-    final step = (data.length / 6).ceil();
-    final indices = <int>[];
+    // Skip if too close to average value
+    if ((maxY - _getYPosition(entry.avgValue)).abs() > 5) {
+      // Max value point (smaller)
+      _pointPaint
+        ..color = Colors.white.withOpacity(0.8 * animation.value)
+        ..style = PaintingStyle.fill;
 
-    for (var i = 0; i < data.length; i += step) {
-      indices.add(i);
+      canvas.drawCircle(Offset(x, maxY), radius, _pointPaint);
+
+      _pointPaint
+        ..color = style.primaryColor.withOpacity(0.7 * animation.value);
+
+      canvas.drawCircle(Offset(x, maxY), radius * 0.7, _pointPaint);
     }
 
-    if (!indices.contains(data.length - 1)) {
-      indices.add(data.length - 1);
-    }
+    // Skip if too close to average value
+    if ((minY - _getYPosition(entry.avgValue)).abs() > 5) {
+      // Min value point (smaller)
+      _pointPaint
+        ..color = Colors.white.withOpacity(0.8 * animation.value)
+        ..style = PaintingStyle.fill;
 
-    return indices;
+      canvas.drawCircle(Offset(x, minY), radius, _pointPaint);
+
+      _pointPaint
+        ..color = style.primaryColor.withOpacity(0.7 * animation.value);
+
+      canvas.drawCircle(Offset(x, minY), radius * 0.7, _pointPaint);
+    }
   }
 
   double _getYPosition(double value) {
@@ -390,16 +650,28 @@ class HeartRateChartPainter extends CustomPainter {
         ((value - minValue) / (maxValue - minValue)) * chartArea.height;
   }
 
+  double _getXPosition(int index) {
+    if (data.length <= 1) return chartArea.center.dx;
+
+    final effectiveWidth = chartArea.width;
+    const edgePadding = 15.0;
+    final availableWidth = effectiveWidth - (edgePadding * 2);
+    final pointSpacing = availableWidth / (data.length - 1);
+
+    return chartArea.left + edgePadding + (index * pointSpacing);
+  }
+
   @override
   bool shouldRepaint(covariant HeartRateChartPainter oldDelegate) {
     return data != oldDelegate.data ||
         style != oldDelegate.style ||
-        config != oldDelegate.config ||
-        animation != oldDelegate.animation ||
-        selectedData != oldDelegate.selectedData ||
+        animation.value != oldDelegate.animation.value ||
         chartArea != oldDelegate.chartArea ||
-        yAxisValues != oldDelegate.yAxisValues ||
         minValue != oldDelegate.minValue ||
-        maxValue != oldDelegate.maxValue;
+        maxValue != oldDelegate.maxValue ||
+        showGrid != oldDelegate.showGrid ||
+        showRanges != oldDelegate.showRanges ||
+        viewType != oldDelegate.viewType ||
+        selectedData != oldDelegate.selectedData;
   }
 }

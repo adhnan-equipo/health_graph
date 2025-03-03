@@ -1,110 +1,120 @@
-// lib/utils/heart_rate_calculations.dart
+// lib/heart_rate/services/heart_rate_chart_calculations.dart
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
+import '../../utils/tooltip_position.dart';
+import '../models/heart_rate_range.dart';
 import '../models/processed_heart_rate_data.dart';
 
-class ChartCalculations {
-  static const double _minPaddingPercent = 0.05;
-  static const double _maxPaddingPercent = 0.15;
-  static const int _preferredStepCount = 6;
-  static const int _minStepSize = 10;
-  static const int _maxStepSize = 20;
-  static const int _baseGridSize = 10;
-  static const double _hitTestThreshold = 20.0;
+class HeartRateChartCalculations {
+  static const double _hitTestThreshold = 30.0;
+  static const double _minYPadding = 0.1; // 10% padding minimum
+  static const double _maxYPadding = 0.2; // 20% padding maximum
 
-  /// Calculates Y-axis values based on the provided heart rate data
-  static List<int> calculateYAxisValues(List<ProcessedHeartRateData> data) {
+  /// Calculate the Y-axis values, min, and max values for the chart
+  static (List<int>, double, double) calculateYAxisRange(
+    List<ProcessedHeartRateData> data,
+  ) {
     if (data.isEmpty) {
-      // Return default range if no data
-      return [40, 60, 80, 100, 120, 140];
+      return _getDefaultRange();
     }
 
-    final values = _collectValues(data);
-    if (values.isEmpty) {
-      return [40, 60, 80, 100, 120, 140];
+    // Collect all values to determine min/max
+    final allValues = <double>[];
+
+    // Add data points
+    for (var point in data) {
+      if (!point.isEmpty) {
+        allValues.addAll([
+          point.minValue.toDouble(),
+          point.maxValue.toDouble(),
+          point.avgValue,
+          if (point.restingRate != null) point.restingRate!.toDouble(),
+        ]);
+      }
     }
 
-    final minValue = values.reduce((a, b) => a < b ? a : b);
-    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    // Include zone boundaries to ensure proper display
+    allValues.addAll([
+      HeartRateRange.lowMin.toDouble(),
+      HeartRateRange.lowMax.toDouble(),
+      HeartRateRange.normalMax.toDouble(),
+      HeartRateRange.elevatedMax.toDouble(),
+    ]);
+
+    if (allValues.isEmpty) {
+      return _getDefaultRange();
+    }
+
+    // Find actual min/max from data
+    final minValue = allValues.reduce(min);
+    final maxValue = allValues.reduce(max);
+
+    // Calculate range with padding
     final range = maxValue - minValue;
-    final padding = _calculateDynamicPadding(range) * range;
+    final paddingPercent = _calculateDynamicPadding(range);
+    final topPadding = range * paddingPercent;
+    final bottomPadding = range * paddingPercent;
 
-    var start = ((minValue - padding) / _baseGridSize).floor() * _baseGridSize;
-    var end = ((maxValue + padding) / _baseGridSize).ceil() * _baseGridSize;
+    // Round to nearest 10 with extra space
+    final adjustedMin = max(0, ((minValue - bottomPadding) / 10).floor() * 10);
+    var adjustedMax = ((maxValue + topPadding) / 10).ceil() * 10;
 
-    // Ensure range includes common heart rate zones
-    start = start.clamp(30, 60);
-    end = end.clamp(120, 200);
+    // Ensure maximum has enough padding
+    adjustedMax = max(adjustedMax, (maxValue + 20).toInt());
 
-    final step = _calculateStepSize(start, end);
-    return _generateAxisValues(start, end, step);
+    // Calculate optimal step size
+    final effectiveRange = adjustedMax - adjustedMin;
+    var stepSize = _calculateOptimalStepSize(effectiveRange.toDouble());
+
+    // Generate axis values
+    final yAxisValues = _generateAxisValues(adjustedMin, adjustedMax, stepSize);
+
+    return (yAxisValues, adjustedMin.toDouble(), adjustedMax.toDouble());
   }
 
-  static List<double> _collectValues(List<ProcessedHeartRateData> data) {
-    return data
-        .expand((d) => [
-              d.minValue.toDouble(),
-              d.maxValue.toDouble(),
-              d.avgValue,
-              if (d.restingRate != null) d.restingRate!.toDouble(),
-            ])
-        .where((value) => value > 0)
-        .toList();
+  /// Calculate optimal step size for Y-axis
+  static int _calculateOptimalStepSize(double range) {
+    if (range <= 50) return 10;
+    if (range <= 100) return 20;
+    if (range <= 200) return 40;
+    return (range / 5).round();
   }
 
-  static double _calculateDynamicPadding(double range) {
-    if (range <= 0) return _maxPaddingPercent;
-    if (range > 100) return _minPaddingPercent;
-    if (range < 40) return _maxPaddingPercent;
-    return _maxPaddingPercent -
-        ((range - 40) / 60) * (_maxPaddingPercent - _minPaddingPercent);
-  }
-
-  static int _calculateStepSize(int start, int end) {
-    final range = end - start;
-    final rawStep = (range / _preferredStepCount).ceil();
-    return _normalizeStepSize(rawStep);
-  }
-
-  static int _normalizeStepSize(int rawStep) {
-    if (rawStep <= _minStepSize) return _minStepSize;
-    if (rawStep >= _maxStepSize) return _maxStepSize;
-    return ((rawStep + 4) ~/ 5) * 5; // Round to nearest 5
-  }
-
-  static List<int> _generateAxisValues(int start, int end, int step) {
+  /// Generate axis values with given step size
+  static List<int> _generateAxisValues(int min, int max, int step) {
     final values = <int>[];
-    for (var value = start; value <= end; value += step) {
-      values.add(value);
+    for (var i = min; i <= max; i += step) {
+      values.add(i);
     }
     return values;
   }
 
-  static ProcessedHeartRateData? findDataPoint(
-    Offset position,
-    Rect chartArea,
-    List<ProcessedHeartRateData> data,
-  ) {
-    if (data.isEmpty) return null;
-
-    final xStep = chartArea.width / (data.length - 1);
-    final index = ((position.dx - chartArea.left) / xStep).round();
-
-    if (index >= 0 && index < data.length) {
-      final x = chartArea.left + (index * xStep);
-      if ((x - position.dx).abs() <= _hitTestThreshold) {
-        return data[index];
-      }
-    }
-
-    return null;
+  /// Calculate default range when no data is available
+  static (List<int>, double, double) _getDefaultRange() {
+    const defaultMin = 40;
+    const defaultMax = 160;
+    const step = 20;
+    final values = _generateAxisValues(defaultMin, defaultMax, step);
+    return (values, defaultMin.toDouble(), defaultMax.toDouble());
   }
 
+  /// Calculate dynamic padding percentage based on range
+  static double _calculateDynamicPadding(double range) {
+    if (range <= 0) return _maxYPadding;
+    if (range > 100) return _minYPadding;
+
+    // Linear interpolation between min and max padding
+    return _maxYPadding - (range / 100) * (_maxYPadding - _minYPadding);
+  }
+
+  /// Calculate chart area within the given size
   static Rect calculateChartArea(Size size) {
-    const leftPadding = 40.0; // Space for y-axis labels
+    const leftPadding = 0.0; // Space for y-axis labels
     const rightPadding = 20.0; // Right margin
-    const topPadding = 20.0; // Top margin
-    const bottomPadding = 30.0; // Space for x-axis labels
+    const topPadding = 15.0; // Top margin
+    const bottomPadding = 35.0; // Space for x-axis labels
 
     return Rect.fromLTRB(
       leftPadding,
@@ -114,13 +124,117 @@ class ChartCalculations {
     );
   }
 
-  static double getYPosition(
+  /// Find data point near the given position
+  static ProcessedHeartRateData? findNearestDataPoint(
+    Offset position,
+    Rect chartArea,
+    List<ProcessedHeartRateData> data,
+  ) {
+    if (data.isEmpty) return null;
+
+    // Calculate the distance for each data point
+    double minDistance = double.infinity;
+    ProcessedHeartRateData? nearestPoint;
+
+    for (var i = 0; i < data.length; i++) {
+      if (data[i].isEmpty) continue;
+
+      final x = _getXPosition(i, data.length, chartArea);
+      final y = _getYPosition(data[i].avgValue, chartArea,
+          _getMinMaxFromData(data).$1, _getMinMaxFromData(data).$2);
+
+      final distance = (position - Offset(x, y)).distance;
+
+      if (distance < minDistance && distance < _hitTestThreshold) {
+        minDistance = distance;
+        nearestPoint = data[i];
+      }
+    }
+
+    return nearestPoint;
+  }
+
+  /// Get min and max values from data
+  static (double, double) _getMinMaxFromData(
+      List<ProcessedHeartRateData> data) {
+    if (data.isEmpty) return (40.0, 160.0);
+
+    double min = double.infinity;
+    double max = 0;
+
+    for (var point in data) {
+      if (!point.isEmpty) {
+        if (point.minValue < min) min = point.minValue.toDouble();
+        if (point.maxValue > max) max = point.maxValue.toDouble();
+        if (point.restingRate != null && point.restingRate! < min) {
+          min = point.restingRate!.toDouble();
+        }
+      }
+    }
+
+    if (min == double.infinity) min = 40;
+    if (max == 0) max = 160;
+
+    return (min, max);
+  }
+
+  /// Calculate tooltip position to ensure it stays within screen bounds
+  static TooltipPosition calculateTooltipPosition(
+    Offset tapPosition,
+    Size tooltipSize,
+    Size screenSize,
+    EdgeInsets padding,
+  ) {
+    double left = tapPosition.dx - (tooltipSize.width / 2);
+    double top = tapPosition.dy - tooltipSize.height - 10;
+    bool showAbove = true;
+
+    // Ensure tooltip stays within horizontal bounds
+    left = left.clamp(
+      padding.left,
+      screenSize.width - tooltipSize.width - padding.right,
+    );
+
+    // Check if tooltip would go off the top of the screen
+    if (top < padding.top) {
+      top = tapPosition.dy + 10;
+      showAbove = false;
+    }
+
+    // Ensure tooltip stays within vertical bounds
+    top = top.clamp(
+      padding.top,
+      screenSize.height - tooltipSize.height - padding.bottom,
+    );
+
+    return TooltipPosition(
+      left: left,
+      top: top,
+      showAbove: showAbove,
+    );
+  }
+
+  /// Calculate x-position for a data point
+  static double _getXPosition(int index, int totalPoints, Rect chartArea) {
+    if (totalPoints <= 1) return chartArea.center.dx;
+
+    final effectiveWidth = chartArea.width;
+    const edgePadding = 15.0;
+    final availableWidth = effectiveWidth - (edgePadding * 2);
+    final pointSpacing = availableWidth / (totalPoints - 1);
+
+    return chartArea.left + edgePadding + (index * pointSpacing);
+  }
+
+  /// Calculate y-position for a value
+  static double _getYPosition(
     double value,
     Rect chartArea,
     double minValue,
     double maxValue,
   ) {
     if (maxValue == minValue) return chartArea.center.dy;
+
     return chartArea.bottom -
         ((value - minValue) / (maxValue - minValue)) * chartArea.height;
   }

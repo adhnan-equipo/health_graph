@@ -1,12 +1,15 @@
-// lib/services/heart_rate_data_processor.dart
+// lib/heart_rate/services/heart_rate_data_processor.dart
+import 'dart:math';
+
 import '../../models/date_range_type.dart';
 import '../models/heart_rate_data.dart';
 import '../models/processed_heart_rate_data.dart';
 
 class HeartRateDataProcessor {
-  static const int maxDataPoints = 16;
-  static const int minDataPointsBeforeAggregation = 8;
+  static const int maxDataPoints = 24;
+  static const int minDataPointsBeforeAggregation = 10;
 
+  /// Process heart rate data based on date range type and zoom level
   static List<ProcessedHeartRateData> processData(
     List<HeartRateData> data,
     DateRangeType dateRangeType,
@@ -18,10 +21,14 @@ class HeartRateDataProcessor {
       return _generateEmptyDataPoints(dateRangeType, startDate, endDate);
     }
 
-    // Group data by date based on view type
+    // Sort by date
+    data.sort((a, b) => a.date.compareTo(b.date));
+
+    // Group data by appropriate time intervals
     final groupedData = _groupDataByDate(data, dateRangeType);
     List<ProcessedHeartRateData> processedData = [];
 
+    // Generate data points for the entire date range
     var currentDate = startDate;
     while (currentDate.isBefore(endDate) ||
         currentDate.isAtSameMomentAs(endDate)) {
@@ -37,7 +44,15 @@ class HeartRateDataProcessor {
       currentDate = _getNextDate(currentDate, dateRangeType);
     }
 
-    // Handle zoom level aggregation if needed
+    // Check if we have any real data
+    bool hasRealData = processedData.any((data) => !data.isEmpty);
+
+    // If no real data exists, return an empty list
+    if (!hasRealData) {
+      return [];
+    }
+
+    // Apply zoom level - aggregate data if too many points
     final effectiveMaxPoints = (maxDataPoints * zoomLevel).round();
     if (processedData.length > effectiveMaxPoints) {
       return _aggregateProcessedData(processedData, effectiveMaxPoints);
@@ -46,6 +61,7 @@ class HeartRateDataProcessor {
     return processedData;
   }
 
+  /// Group data by appropriate date intervals
   static Map<String, List<HeartRateData>> _groupDataByDate(
     List<HeartRateData> data,
     DateRangeType dateRangeType,
@@ -60,6 +76,7 @@ class HeartRateDataProcessor {
     return groupedData;
   }
 
+  /// Process a group of measurements into a single data point
   static ProcessedHeartRateData _processDataGroup(
     List<HeartRateData> measurements,
     DateTime date,
@@ -68,30 +85,58 @@ class HeartRateDataProcessor {
       return ProcessedHeartRateData.empty(date);
     }
 
+    // Extract heart rate values
     final values = measurements.map((m) => m.value).toList();
-    final restingRates = measurements
-        .map((m) => m.restingRate)
-        .where((r) => r != null)
-        .cast<int>()
+
+    // Extract min/max values if available
+    final minValues = measurements
+        .where((m) => m.minValue != null)
+        .map((m) => m.minValue!)
         .toList();
+
+    final maxValues = measurements
+        .where((m) => m.maxValue != null)
+        .map((m) => m.maxValue!)
+        .toList();
+
+    // Extract resting rates if available
+    final restingRates = measurements
+        .where((m) => m.restingRate != null)
+        .map((m) => m.restingRate!)
+        .toList();
+
+    // Calculate min and max values
+    int minValue;
+    int maxValue;
+
+    if (minValues.isNotEmpty && maxValues.isNotEmpty) {
+      // If we have explicit min/max values
+      minValue = minValues.reduce(min);
+      maxValue = maxValues.reduce(max);
+    } else {
+      // Otherwise use the recorded values
+      minValue = values.reduce(min);
+      maxValue = values.reduce(max);
+    }
 
     return ProcessedHeartRateData(
       startDate: measurements.first.date,
       endDate: measurements.last.date,
-      minValue: values.reduce((a, b) => a < b ? a : b),
-      maxValue: values.reduce((a, b) => a > b ? a : b),
+      minValue: minValue,
+      maxValue: maxValue,
       avgValue: values.reduce((a, b) => a + b) / values.length,
       dataPointCount: measurements.length,
       stdDev: _calculateStdDev(values),
-      isRangeData: measurements.length > 1,
+      isRangeData: measurements.length > 1 || minValues.isNotEmpty,
       originalMeasurements: measurements,
       hrv: _calculateHRV(measurements),
-      restingRate: restingRates.isNotEmpty
-          ? restingRates.reduce((a, b) => a < b ? a : b)
-          : null,
+      restingRate: restingRates.isEmpty
+          ? null
+          : restingRates.reduce((a, b) => a < b ? a : b),
     );
   }
 
+  /// Get a consistent key format for the given date and range type
   static String _getDateKey(DateTime date, DateRangeType dateRangeType) {
     switch (dateRangeType) {
       case DateRangeType.day:
@@ -104,6 +149,7 @@ class HeartRateDataProcessor {
     }
   }
 
+  /// Get the next date increment based on range type
   static DateTime _getNextDate(DateTime date, DateRangeType dateRangeType) {
     switch (dateRangeType) {
       case DateRangeType.day:
@@ -116,35 +162,64 @@ class HeartRateDataProcessor {
     }
   }
 
+  /// Calculate standard deviation of a set of values
+  static double _calculateStdDev(List<int> values) {
+    if (values.length <= 1) return 0;
+
+    final mean = values.reduce((a, b) => a + b) / values.length;
+    final sumSquaredDiffs = values.fold(0.0, (sum, value) {
+      final diff = value - mean;
+      return sum + (diff * diff);
+    });
+
+    return sqrt(sumSquaredDiffs / (values.length - 1));
+  }
+
+  /// Approximate HRV using adjacent measurements
+  static double _calculateHRV(List<HeartRateData> measurements) {
+    if (measurements.length <= 1) return 0;
+
+    final rmssd = <double>[];
+
+    for (var i = 1; i < measurements.length; i++) {
+      final current = measurements[i];
+      final previous = measurements[i - 1];
+
+      // Calculate approximate R-R intervals in ms
+      final currentRR = 60000 / current.value;
+      final previousRR = 60000 / previous.value;
+
+      // Square the difference
+      final diff = currentRR - previousRR;
+      rmssd.add(diff * diff);
+    }
+
+    if (rmssd.isEmpty) return 0;
+
+    // Root mean square of successive differences
+    final meanSquare = rmssd.reduce((a, b) => a + b) / rmssd.length;
+    return sqrt(meanSquare);
+  }
+
+  /// Generate empty data points for the given date range
   static List<ProcessedHeartRateData> _generateEmptyDataPoints(
     DateRangeType dateRangeType,
     DateTime startDate,
     DateTime endDate,
   ) {
-    List<ProcessedHeartRateData> emptyPoints = [];
+    final emptyPoints = <ProcessedHeartRateData>[];
     var currentDate = startDate;
 
     while (currentDate.isBefore(endDate) ||
         currentDate.isAtSameMomentAs(endDate)) {
       emptyPoints.add(ProcessedHeartRateData.empty(currentDate));
-
-      switch (dateRangeType) {
-        case DateRangeType.day:
-          currentDate = currentDate.add(const Duration(hours: 1));
-          break;
-        case DateRangeType.week:
-        case DateRangeType.month:
-          currentDate = currentDate.add(const Duration(days: 1));
-          break;
-        case DateRangeType.year:
-          currentDate = DateTime(currentDate.year, currentDate.month + 1, 1);
-          break;
-      }
+      currentDate = _getNextDate(currentDate, dateRangeType);
     }
 
     return emptyPoints;
   }
 
+  /// Aggregate processed data to reduce number of points
   static List<ProcessedHeartRateData> _aggregateProcessedData(
     List<ProcessedHeartRateData> data,
     int targetCount,
@@ -153,7 +228,7 @@ class HeartRateDataProcessor {
     final result = <ProcessedHeartRateData>[];
 
     for (var i = 0; i < data.length; i += chunkSize) {
-      final end = (i + chunkSize < data.length) ? i + chunkSize : data.length;
+      final end = min(i + chunkSize, data.length);
       final chunk = data.sublist(i, end);
 
       // Skip if all data points in chunk are empty
@@ -166,85 +241,95 @@ class HeartRateDataProcessor {
       final validData = chunk.where((d) => !d.isEmpty).toList();
       if (validData.isEmpty) continue;
 
-      // Process valid data
-      result.add(_aggregateChunk(validData));
+      // Collect all original measurements
+      final allMeasurements = validData
+          .expand((d) => d.originalMeasurements)
+          .toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
+
+      result.add(_aggregateChunk(validData, allMeasurements));
     }
 
     return result;
   }
 
+  /// Aggregate a chunk of data points into a single data point
   static ProcessedHeartRateData _aggregateChunk(
     List<ProcessedHeartRateData> chunk,
+    List<HeartRateData> allMeasurements,
   ) {
-    // Collect all original measurements
-    final allMeasurements = chunk.expand((d) => d.originalMeasurements).toList()
-      ..sort((a, b) => a.date.compareTo(b.date));
+    // Calculate min, max, and average values
+    final minValue = chunk.map((d) => d.minValue).reduce(min);
+    final maxValue = chunk.map((d) => d.maxValue).reduce(max);
 
-    final values = chunk.map((d) => d.avgValue).toList();
+    // Weighted average for more accurate representation
+    final totalWeight = chunk.fold(0, (sum, d) => sum + d.dataPointCount);
+    final avgValue = chunk.fold(
+          0.0,
+          (sum, d) => sum + (d.avgValue * d.dataPointCount),
+        ) /
+        totalWeight;
+
+    // Process resting rates (if available)
     final restingRates = chunk
-        .map((d) => d.restingRate)
-        .where((r) => r != null)
-        .cast<int>()
+        .where((d) => d.restingRate != null)
+        .map((d) => d.restingRate!)
         .toList();
+
+    // Process HRV values (if available)
+    final hrvValues =
+        chunk.where((d) => d.hrv != null).map((d) => d.hrv!).toList();
 
     return ProcessedHeartRateData(
       startDate: chunk.first.startDate,
       endDate: chunk.last.endDate,
-      minValue: chunk.map((d) => d.minValue).reduce((a, b) => a < b ? a : b),
-      maxValue: chunk.map((d) => d.maxValue).reduce((a, b) => a > b ? a : b),
-      avgValue: values.reduce((a, b) => a + b) / values.length,
-      dataPointCount: chunk.fold(0, (sum, d) => sum + d.dataPointCount),
-      stdDev: _calculateStdDev(values.map((v) => v.round()).toList()),
+      minValue: minValue,
+      maxValue: maxValue,
+      avgValue: avgValue,
+      dataPointCount: totalWeight,
+      stdDev: _combinedStdDev(
+          chunk.map((d) => (d.stdDev, d.avgValue, d.dataPointCount)).toList()),
       isRangeData: true,
       originalMeasurements: allMeasurements,
-      hrv: chunk.map((d) => d.hrv).whereType<double>().isEmpty
+      hrv: hrvValues.isEmpty
           ? null
-          : chunk
-                  .map((d) => d.hrv)
-                  .whereType<double>()
-                  .reduce((a, b) => a + b) /
-              chunk.map((d) => d.hrv).whereType<double>().length,
-      restingRate: restingRates.isEmpty
-          ? null
-          : restingRates.reduce((a, b) => a < b ? a : b),
+          : hrvValues.reduce((a, b) => a + b) / hrvValues.length,
+      restingRate: restingRates.isEmpty ? null : restingRates.reduce(min),
     );
   }
 
-  static double _calculateStdDev(List<int> values) {
-    if (values.length <= 1) return 0;
-    final mean = values.reduce((a, b) => a + b) / values.length;
-    final squaredDiffs = values.map((v) => (v - mean) * (v - mean));
-    return (squaredDiffs.reduce((a, b) => a + b) / (values.length - 1)).sqrt();
+  /// Calculate combined standard deviation for aggregated data
+  static double _combinedStdDev(
+    List<(double stdDev, double mean, int count)> values,
+  ) {
+    if (values.isEmpty) return 0;
+    final totalCount = values.fold(0, (sum, item) => sum + item.$3);
+    if (totalCount <= 1) return values.first.$1;
+
+    // Calculate combined mean
+    final combinedMean =
+        values.fold(0.0, (sum, item) => sum + item.$2 * item.$3) / totalCount;
+
+    // Calculate combined variance
+    final combinedVariance = values.fold(0.0, (sum, item) {
+          final variance = item.$1 * item.$1;
+          final meanDiffSquared = pow(item.$2 - combinedMean, 2);
+          return sum + (variance + meanDiffSquared) * item.$3;
+        }) /
+        totalCount;
+
+    return sqrt(combinedVariance);
   }
 
-  static double _calculateHRV(List<HeartRateData> measurements) {
-    if (measurements.length <= 1) return 0;
-    final rrIntervals = <double>[];
-
-    for (var i = 1; i < measurements.length; i++) {
-      final current = measurements[i];
-      final previous = measurements[i - 1];
-
-      final timeDiff = current.date.difference(previous.date).inMilliseconds;
-      if (timeDiff > 0) {
-        rrIntervals.add(60000 / current.value - 60000 / previous.value);
-      }
-    }
-
-    if (rrIntervals.isEmpty) return 0;
-    return _calculateStdDev(rrIntervals.map((r) => r.round()).toList());
-  }
-}
-
-extension on double {
-  double sqrt() {
-    if (this <= 0) return 0;
-    double x = this;
+  /// Calculate square root manually for devices without math lib
+  static double sqrt(double value) {
+    if (value <= 0) return 0;
+    double x = value;
     double y = 1;
     double e = 0.000001;
     while ((x - y) > e) {
       x = (x + y) / 2;
-      y = this / x;
+      y = value / x;
     }
     return x;
   }
