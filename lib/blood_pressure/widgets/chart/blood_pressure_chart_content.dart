@@ -1,5 +1,6 @@
 // lib/blood_pressure/widgets/chart/blood_pressure_chart_content.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../Drawer/blood_pressure_chart_painter.dart';
 import '../../models/chart_view_config.dart';
@@ -49,6 +50,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
   double? _minValue;
   double? _maxValue;
   OverlayEntry? _tooltipOverlay;
+  ProcessedBloodPressureData? _lastSelectedData;
 
   // Cache the last calculation to prevent unnecessary updates
   String _lastDataHash = '';
@@ -157,25 +159,47 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     if (_chartArea == null) return;
 
     final localPosition = details.localPosition;
-    if (!_isPointInChartArea(localPosition)) {
-      widget.onDataSelected
-          ?.call(null); // Clear selection when clicking outside
-      _hideTooltip();
-      return;
+
+    // Check if tap is in chart area
+    if (!_isPointInChartArea(localPosition)) return;
+
+    // Find closest data point based on x-axis proximity only
+    ProcessedBloodPressureData? closestPoint;
+    double minXDistance = double.infinity;
+    const hitTestThreshold = 40.0;
+
+    for (int i = 0; i < widget.data.length; i++) {
+      final entry = widget.data[i];
+      if (entry.isEmpty) continue;
+
+      final x = ChartCalculations.calculateXPosition(
+          i, widget.data.length, _chartArea!);
+      final xDistance = (localPosition.dx - x).abs();
+
+      if (xDistance < minXDistance && xDistance < hitTestThreshold) {
+        minXDistance = xDistance;
+        closestPoint = entry;
+      }
     }
 
-    final selectedData = ChartCalculations.findDataPoint(
-      localPosition,
-      _chartArea!,
-      widget.data,
-    );
+    // Only update if selection actually changed
+    if (closestPoint != _lastSelectedData) {
+      // Provide haptic feedback only when selection changes
+      HapticFeedback.selectionClick();
 
-    if (selectedData != null) {
-      widget.onDataSelected?.call(selectedData); // Ensure this is called
-      _showTooltip(selectedData, localPosition);
-    } else {
-      widget.onDataSelected?.call(null);
-      _hideTooltip();
+      _lastSelectedData = closestPoint;
+
+      // Call callback to update parent's state
+      widget.onDataSelected?.call(closestPoint);
+
+      if (closestPoint != null) {
+        widget.onDataPointTap?.call(closestPoint);
+        _showTooltip(closestPoint, localPosition);
+      } else {
+        _hideTooltip();
+      }
+
+      // No need to call setState here - the parent widget will handle it
     }
   }
 

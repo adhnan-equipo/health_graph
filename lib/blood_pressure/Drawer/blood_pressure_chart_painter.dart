@@ -140,14 +140,24 @@ class BloodPressureChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant BloodPressureChartPainter oldDelegate) {
+    // Check only the properties that should trigger a repaint
+    final selectionChanged =
+        (selectedData?.startDate != oldDelegate.selectedData?.startDate) ||
+            (selectedData?.endDate != oldDelegate.selectedData?.endDate);
+
+    // If only selection changed, we can use a more targeted approach
+    if (selectionChanged &&
+        data == oldDelegate.data &&
+        chartArea == oldDelegate.chartArea) {
+      // This is a hint to the system that we only need to repaint the selection
+      return true;
+    }
+
+    // Full repaint needed only when these key properties change
     return data != oldDelegate.data ||
-        style != oldDelegate.style ||
-        config != oldDelegate.config ||
-        selectedData != oldDelegate.selectedData ||
-        animation.value != oldDelegate.animation.value ||
         chartArea != oldDelegate.chartArea ||
-        yAxisValues != oldDelegate.yAxisValues ||
         minValue != oldDelegate.minValue ||
-        maxValue != oldDelegate.maxValue;
+        maxValue != oldDelegate.maxValue ||
+        animation.value != oldDelegate.animation.value;
   }
 }

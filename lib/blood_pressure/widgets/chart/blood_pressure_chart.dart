@@ -157,10 +157,21 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
   void _handleDataSelected(ProcessedBloodPressureData? data) {
     if (!_isDisposed) {
       _controller.selectData(data);
+
+      // Restart animation to force redraw
+      if (data != null) {
+        _animationController.reset();
+        _animationController.forward();
+      }
+
       widget.onDataSelected?.call(data);
+
+      // Force rebuild
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
-
   @override
   void dispose() {
     _isDisposed = true;
