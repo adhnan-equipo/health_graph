@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/date_range_type.dart';
+import '../../utils/chart_view_config.dart';
 import '../models/blood_pressure_data.dart';
-import '../models/chart_view_config.dart';
 import '../models/processed_blood_pressure_data.dart';
 import '../utils/data_processor.dart';
 

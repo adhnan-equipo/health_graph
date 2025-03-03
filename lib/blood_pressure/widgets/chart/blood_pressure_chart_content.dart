@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../utils/chart_view_config.dart';
 import '../../Drawer/blood_pressure_chart_painter.dart';
-import '../../models/chart_view_config.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../services/chart_calculations.dart';
 import '../../styles/blood_pressure_chart_style.dart';

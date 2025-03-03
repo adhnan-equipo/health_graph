@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/chart_view_config.dart';
+import '../../utils/chart_view_config.dart';
 import '../models/processed_blood_pressure_data.dart';
 import '../styles/blood_pressure_chart_style.dart';
 import 'chart_abel_drawer.dart';

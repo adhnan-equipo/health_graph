@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/date_range_type.dart';
+import '../../../utils/chart_view_config.dart';
 import '../../controllers/chart_controller.dart';
 import '../../models/blood_pressure_data.dart';
-import '../../models/chart_view_config.dart';
 import '../../models/processed_blood_pressure_data.dart';
 import '../../styles/blood_pressure_chart_style.dart';
 import 'blood_pressure_chart_content.dart';
@@ -172,6 +172,7 @@ class _BloodPressureGraphState extends State<BloodPressureGraph>
       }
     }
   }
+
   @override
   void dispose() {
     _isDisposed = true;

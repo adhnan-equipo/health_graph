@@ -2,8 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../blood_pressure/models/chart_view_config.dart';
 import '../../models/date_range_type.dart';
+import '../../utils/chart_view_config.dart';
 import '../models/o2_saturation_data.dart';
 import '../models/processed_o2_saturation_data.dart';
 import '../services/data_processor.dart';

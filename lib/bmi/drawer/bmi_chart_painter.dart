@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../blood_pressure/models/chart_view_config.dart';
+import '../../utils/chart_view_config.dart';
 import '../models/processed_bmi_data.dart';
 import '../styles/bmi_chart_style.dart';
 import 'bmi_data_point_drawer.dart';

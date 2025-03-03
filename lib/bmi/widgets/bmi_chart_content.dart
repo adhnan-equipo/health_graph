@@ -1,7 +1,7 @@
 // lib/bmi/widgets/bmi_chart_content.dart
 import 'package:flutter/material.dart';
 
-import '../../blood_pressure/models/chart_view_config.dart';
+import '../../utils/chart_view_config.dart';
 import '../drawer/bmi_chart_painter.dart';
 import '../models/processed_bmi_data.dart';
 import '../services/bmi_chart_calculations.dart';

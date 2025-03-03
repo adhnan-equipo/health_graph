@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../blood_pressure/models/chart_view_config.dart';
+import '../../utils/chart_view_config.dart';
 import '../models/o2_saturation_range.dart';
 import '../models/processed_o2_saturation_data.dart';
 import '../styles/o2_saturation_chart_style.dart';

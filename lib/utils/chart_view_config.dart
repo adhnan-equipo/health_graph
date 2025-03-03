@@ -1,5 +1,5 @@
 // lib/blood_pressure/models/chart_view_config.dart
-import '../../models/date_range_type.dart';
+import '../models/date_range_type.dart';
 
 class ChartViewConfig {
   final DateRangeType viewType;
