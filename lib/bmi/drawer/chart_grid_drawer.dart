@@ -12,7 +12,7 @@ class ChartGridDrawer {
     double animationValue,
   ) {
     final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.15 * animationValue)
+      ..color = Colors.grey.withValues(alpha: 0.15 * animationValue)
       ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 
@@ -35,8 +35,8 @@ class ChartGridDrawer {
     int totalPoints,
     Rect chartArea,
   ) {
-    // Add proper edge padding
-    const edgePadding = 12.0;
+    // Increase edge padding for better visibility of first and last points
+    const edgePadding = 15.0; // Increased from 12.0
     final availableWidth = chartArea.width - (edgePadding * 2);
 
     // Handle single point case

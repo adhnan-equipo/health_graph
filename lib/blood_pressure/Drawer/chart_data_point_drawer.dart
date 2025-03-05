@@ -173,8 +173,8 @@ class ChartDataPointDrawer {
       Offset(0, chartArea.top),
       Offset(0, chartArea.bottom),
       [
-        style.systolicColor.withOpacity(0.7 * animation.value),
-        style.systolicColor.withOpacity(0.3 * animation.value),
+        style.systolicColor.withValues(alpha: 0.7 * animation.value),
+        style.systolicColor.withValues(alpha: 0.3 * animation.value),
       ],
     );
 
@@ -190,8 +190,8 @@ class ChartDataPointDrawer {
       Offset(0, chartArea.top),
       Offset(0, chartArea.bottom),
       [
-        style.diastolicColor.withOpacity(0.7 * animation.value),
-        style.diastolicColor.withOpacity(0.3 * animation.value),
+        style.diastolicColor.withValues(alpha: 0.7 * animation.value),
+        style.diastolicColor.withValues(alpha: 0.3 * animation.value),
       ],
     );
 
@@ -226,8 +226,8 @@ class ChartDataPointDrawer {
           Offset(0, chartArea.top),
           Offset(0, chartArea.bottom),
           [
-            style.systolicColor.withOpacity(fillOpacity),
-            style.systolicColor.withOpacity(0),
+            style.systolicColor.withValues(alpha: fillOpacity),
+            style.systolicColor.withValues(alpha: 0),
           ],
         );
       canvas.drawPath(systolicFillPath, _fillPaint);
@@ -237,8 +237,8 @@ class ChartDataPointDrawer {
           Offset(0, chartArea.top),
           Offset(0, chartArea.bottom),
           [
-            style.diastolicColor.withOpacity(fillOpacity),
-            style.diastolicColor.withOpacity(0),
+            style.diastolicColor.withValues(alpha: fillOpacity),
+            style.diastolicColor.withValues(alpha: 0),
           ],
         );
       canvas.drawPath(diastolicFillPath, _fillPaint);
@@ -265,8 +265,8 @@ class ChartDataPointDrawer {
       positions.maxSystolicPoint,
       positions.maxDiastolicPoint,
       [
-        style.systolicColor.withOpacity(0.7 * animationValue),
-        style.diastolicColor.withOpacity(0.7 * animationValue),
+        style.systolicColor.withValues(alpha: 0.7 * animationValue),
+        style.diastolicColor.withValues(alpha: 0.7 * animationValue),
       ],
     );
 
@@ -320,8 +320,8 @@ class ChartDataPointDrawer {
       positions.maxSystolicPoint,
       positions.minSystolicPoint,
       [
-        style.systolicColor.withOpacity(0.9 * animationValue),
-        style.systolicColor.withOpacity(0.5 * animationValue),
+        style.systolicColor.withValues(alpha: 0.9 * animationValue),
+        style.systolicColor.withValues(alpha: 0.5 * animationValue),
       ],
     );
 
@@ -330,8 +330,8 @@ class ChartDataPointDrawer {
       positions.maxDiastolicPoint,
       positions.minDiastolicPoint,
       [
-        style.diastolicColor.withOpacity(0.9 * animationValue),
-        style.diastolicColor.withOpacity(0.5 * animationValue),
+        style.diastolicColor.withValues(alpha: 0.9 * animationValue),
+        style.diastolicColor.withValues(alpha: 0.5 * animationValue),
       ],
     );
 
@@ -434,7 +434,7 @@ class ChartDataPointDrawer {
 
     // Create a soft glow effect
     _fillPaint
-      ..color = color.withOpacity(0.3 * animationValue)
+      ..color = color.withValues(alpha: 0.3 * animationValue)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     canvas.drawCircle(position, animatedRadius * 1.5, _fillPaint);
     _fillPaint.maskFilter = null;
@@ -444,8 +444,8 @@ class ChartDataPointDrawer {
       position,
       animatedRadius,
       [
-        color.withOpacity(0.9 * animationValue),
-        color.withOpacity(0.7 * animationValue),
+        color.withValues(alpha: 0.9 * animationValue),
+        color.withValues(alpha: 0.7 * animationValue),
       ],
     );
 
@@ -461,7 +461,7 @@ class ChartDataPointDrawer {
     );
 
     _fillPaint
-      ..color = Colors.white.withOpacity(0.5 * animationValue)
+      ..color = Colors.white.withValues(alpha: 0.5 * animationValue)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(highlightOffset, animatedRadius * 0.4, _fillPaint);
 

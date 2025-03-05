@@ -169,9 +169,9 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
           decoration: BoxDecoration(
-            color: zoneColor.withOpacity(0.1),
+            color: zoneColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: zoneColor.withOpacity(0.3)),
+            border: Border.all(color: zoneColor.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

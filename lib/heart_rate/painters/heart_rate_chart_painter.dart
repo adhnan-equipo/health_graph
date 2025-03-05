@@ -101,8 +101,8 @@ class HeartRateChartPainter extends CustomPainter {
       Offset(chartArea.left, chartArea.top),
       Offset(chartArea.left, chartArea.bottom),
       [
-        style.backgroundColor.withOpacity(0.1 * animation.value),
-        style.backgroundColor.withOpacity(0.02 * animation.value),
+        style.backgroundColor.withValues(alpha: 0.1 * animation.value),
+        style.backgroundColor.withValues(alpha: 0.02 * animation.value),
       ],
     );
 
@@ -114,7 +114,7 @@ class HeartRateChartPainter extends CustomPainter {
 
   void _drawEmptyState(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = style.gridLineColor.withOpacity(0.1 * animation.value)
+      ..color = style.gridLineColor.withValues(alpha: 0.1 * animation.value)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -139,7 +139,7 @@ class HeartRateChartPainter extends CustomPainter {
   void _drawErrorState(Canvas canvas, Size size) {
     // Draw a simple fallback UI when rendering errors occur
     final paint = Paint()
-      ..color = Colors.red.withOpacity(0.1)
+      ..color = Colors.red.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(chartArea, paint);
@@ -204,7 +204,7 @@ class HeartRateChartPainter extends CustomPainter {
 
       // Draw zone background with a simple color instead of gradient for better performance
       _fillPaint
-        ..color = zone.$3.withOpacity(0.1 * animation.value)
+        ..color = zone.$3.withValues(alpha: 0.1 * animation.value)
         ..style = PaintingStyle.fill;
       canvas.drawRect(zoneRect, _fillPaint);
 
@@ -220,7 +220,7 @@ class HeartRateChartPainter extends CustomPainter {
       ..text = TextSpan(
         text: text,
         style: TextStyle(
-          color: color.withOpacity(0.7 * animation.value),
+          color: color.withValues(alpha: 0.7 * animation.value),
           fontSize: 10,
           fontWeight: FontWeight.w500,
         ),
@@ -242,7 +242,7 @@ class HeartRateChartPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas) {
     final paint = Paint()
-      ..color = style.gridLineColor.withOpacity(0.15 * animation.value)
+      ..color = style.gridLineColor.withValues(alpha: 0.15 * animation.value)
       ..strokeWidth = 0.5;
 
     // Draw horizontal grid lines with animation
@@ -307,7 +307,7 @@ class HeartRateChartPainter extends CustomPainter {
         ..text = TextSpan(
           text: value.toString(),
           style: style.labelStyle.copyWith(
-            color: style.labelColor.withOpacity(opacity),
+            color: style.labelColor.withValues(alpha: opacity),
           ),
         )
         ..layout();
@@ -342,7 +342,7 @@ class HeartRateChartPainter extends CustomPainter {
         ..text = TextSpan(
           text: label,
           style: style.labelStyle.copyWith(
-            color: style.labelColor.withOpacity(opacity),
+            color: style.labelColor.withValues(alpha: opacity),
           ),
         )
         ..layout();
@@ -394,7 +394,8 @@ class HeartRateChartPainter extends CustomPainter {
     // Draw resting heart rate line if exists
     if (_restingRatePath != null) {
       _linePaint
-        ..color = style.restingRateColor.withOpacity(0.6 * animation.value)
+        ..color =
+            style.restingRateColor.withValues(alpha: 0.6 * animation.value)
         ..strokeWidth = style.lineThickness - 0.5
         ..strokeCap = StrokeCap.round;
 
@@ -403,7 +404,7 @@ class HeartRateChartPainter extends CustomPainter {
 
     // Draw main heart rate line
     _linePaint
-      ..color = style.primaryColor.withOpacity(0.8 * animation.value)
+      ..color = style.primaryColor.withValues(alpha: 0.8 * animation.value)
       ..strokeWidth = style.lineThickness
       ..strokeCap = StrokeCap.round;
 
@@ -622,7 +623,7 @@ class HeartRateChartPainter extends CustomPainter {
 
         // Draw the area with a solid color for better performance
         _fillPaint
-          ..color = style.primaryColor.withOpacity(0.1 * animation.value)
+          ..color = style.primaryColor.withValues(alpha: 0.1 * animation.value)
           ..style = PaintingStyle.fill;
 
         canvas.drawPath(areaPath, _fillPaint);
@@ -668,7 +669,7 @@ class HeartRateChartPainter extends CustomPainter {
 
       // Draw white outline
       _pointPaint
-        ..color = Colors.white.withOpacity(animation.value)
+        ..color = Colors.white.withValues(alpha: animation.value)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, y), animatedRadius + 1, _pointPaint);
@@ -676,7 +677,7 @@ class HeartRateChartPainter extends CustomPainter {
       // Draw colored center
       _pointPaint
         ..color = (isSelected ? style.selectedColor : style.primaryColor)
-            .withOpacity(animation.value)
+            .withValues(alpha: animation.value)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, y), animatedRadius, _pointPaint);
@@ -745,13 +746,13 @@ class HeartRateChartPainter extends CustomPainter {
     if ((maxY - _getYPosition(entry.avgValue)).abs() > 5) {
       // Max value point (smaller)
       _pointPaint
-        ..color = Colors.white.withOpacity(0.8 * animation.value)
+        ..color = Colors.white.withValues(alpha: 0.8 * animation.value)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, maxY), radius, _pointPaint);
 
       _pointPaint
-        ..color = style.primaryColor.withOpacity(0.7 * animation.value);
+        ..color = style.primaryColor.withValues(alpha: 0.7 * animation.value);
 
       canvas.drawCircle(Offset(x, maxY), radius * 0.7, _pointPaint);
     }
@@ -760,13 +761,13 @@ class HeartRateChartPainter extends CustomPainter {
     if ((minY - _getYPosition(entry.avgValue)).abs() > 5) {
       // Min value point (smaller)
       _pointPaint
-        ..color = Colors.white.withOpacity(0.8 * animation.value)
+        ..color = Colors.white.withValues(alpha: 0.8 * animation.value)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, minY), radius, _pointPaint);
 
       _pointPaint
-        ..color = style.primaryColor.withOpacity(0.7 * animation.value);
+        ..color = style.primaryColor.withValues(alpha: 0.7 * animation.value);
 
       canvas.drawCircle(Offset(x, minY), radius * 0.7, _pointPaint);
     }

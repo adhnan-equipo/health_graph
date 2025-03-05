@@ -18,7 +18,7 @@ class ChartReferenceRangeDrawer {
   ) {
     final rangePaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = style.normalRangeColor.withOpacity(0.1 * animationValue);
+      ..color = style.normalRangeColor.withValues(alpha: 0.1 * animationValue);
 
     // Draw systolic normal range
     final systolicRangeRect = _calculateRangeRect(
@@ -88,7 +88,7 @@ class ChartReferenceRangeDrawer {
       ..text = TextSpan(
         text: text,
         style: style.copyWith(
-          color: style.color?.withOpacity(animationValue),
+          color: style.color?.withValues(alpha: animationValue),
         ),
       )
       ..layout();

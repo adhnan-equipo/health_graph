@@ -31,7 +31,7 @@ class ChartLabelDrawer {
         ..text = TextSpan(
           text: value.toString(),
           style: textStyle.copyWith(
-            color: textStyle.color?.withOpacity(animationValue),
+            color: textStyle.color?.withValues(alpha: animationValue),
           ),
         )
         ..layout();
@@ -73,7 +73,8 @@ class ChartLabelDrawer {
         ..text = TextSpan(
           text: label,
           style: style.dateLabelStyle?.copyWith(
-            color: style.dateLabelStyle?.color?.withOpacity(animationValue),
+            color:
+                style.dateLabelStyle?.color?.withValues(alpha: animationValue),
           ),
         )
         ..layout();
