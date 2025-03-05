@@ -6,10 +6,9 @@ import '../../models/date_range_type.dart';
 import '../models/processed_o2_saturation_data.dart';
 import '../styles/o2_saturation_chart_style.dart';
 
-class O2SaturationTooltip extends StatelessWidget {
+class O2SaturationTooltip extends StatefulWidget {
   final ProcessedO2SaturationData data;
   final DateRangeType viewType;
-  final Offset position;
   final VoidCallback onClose;
   final O2SaturationChartStyle style;
   final Size screenSize;
@@ -19,20 +18,28 @@ class O2SaturationTooltip extends StatelessWidget {
     Key? key,
     required this.data,
     required this.viewType,
-    required this.position,
     required this.onClose,
     required this.style,
     required this.screenSize,
     this.onTooltipTap,
   }) : super(key: key);
 
-  String _formatTimeRange() {
-    final startDate = data.startDate;
-    final endDate = data.endDate;
+  @override
+  State<O2SaturationTooltip> createState() => _O2SaturationTooltipState();
+}
 
-    switch (viewType) {
+class _O2SaturationTooltipState extends State<O2SaturationTooltip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  String _formatTimeRange() {
+    final startDate = widget.data.startDate;
+    final endDate = widget.data.endDate;
+
+    switch (widget.viewType) {
       case DateRangeType.day:
-        if (data.dataPointCount <= 1) {
+        if (widget.data.dataPointCount <= 1) {
           return DateFormat('MMM d, HH:mm').format(startDate);
         }
         return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
@@ -58,7 +65,7 @@ class O2SaturationTooltip extends StatelessWidget {
   }
 
   Widget _buildMeasurementsList(BuildContext context) {
-    final measurements = data.originalMeasurements;
+    final measurements = widget.data.originalMeasurements;
     if (measurements.isEmpty) return const SizedBox.shrink();
 
     return Column(
@@ -77,15 +84,8 @@ class O2SaturationTooltip extends StatelessWidget {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                Text(
-                  DateFormat('EEE, MMM d').format(data.startDate),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                ...measurements.map((measurement) {
-                  return Padding(
+                for (var measurement in measurements)
+                  Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -100,7 +100,7 @@ class O2SaturationTooltip extends StatelessWidget {
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: style.primaryColor,
+                                color: widget.style.primaryColor,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -115,7 +115,7 @@ class O2SaturationTooltip extends StatelessWidget {
                                 width: 8,
                                 height: 8,
                                 decoration: BoxDecoration(
-                                  color: style.pulseRateColor,
+                                  color: widget.style.pulseRateColor,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -129,8 +129,7 @@ class O2SaturationTooltip extends StatelessWidget {
                         ),
                       ],
                     ),
-                  );
-                }).toList(),
+                  ),
               ],
             ),
           ),
@@ -150,209 +149,230 @@ class O2SaturationTooltip extends StatelessWidget {
               ),
         ),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: style.primaryColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'O2 Saturation',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-            Text(
-              data.minValue == data.maxValue
-                  ? '${data.minValue}%'
-                  : '${data.minValue} - ${data.maxValue}%',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
+        _buildSummaryRow(
+          context,
+          'O2 Saturation',
+          widget.data.dataPointCount > 1
+              ? '${widget.data.minValue} - ${widget.data.maxValue}%'
+              : '${widget.data.minValue}%',
+          widget.style.primaryColor,
         ),
-        if (data.avgPulseRate != null) ...[
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: style.pulseRateColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Pulse Rate',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              Text(
-                '${data.avgPulseRate!.toStringAsFixed(0)} bpm',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ],
-          ),
-        ],
         const SizedBox(height: 8),
+        if (widget.data.avgPulseRate != null)
+          _buildSummaryRow(
+            context,
+            'Pulse Rate',
+            widget.data.dataPointCount > 1 &&
+                    widget.data.minPulseRate != null &&
+                    widget.data.maxPulseRate != null
+                ? '${widget.data.minPulseRate} - ${widget.data.maxPulseRate} bpm'
+                : '${widget.data.avgPulseRate!.toStringAsFixed(0)} bpm',
+            widget.style.pulseRateColor,
+          ),
+        const SizedBox(height: 8),
+        if (widget.data.dataPointCount > 1)
+          _buildSummaryRow(
+            context,
+            'Average',
+            '${widget.data.avgValue.toStringAsFixed(1)}%',
+            null,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryRow(
+    BuildContext context,
+    String label,
+    String value,
+    Color? indicatorColor,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            if (indicatorColor != null) ...[
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: indicatorColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             Text(
-              'Average',
+              label,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            Text(
-              '${data.avgValue.toStringAsFixed(1)}%',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
           ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatistics(BuildContext context) {
-    if (data.dataPointCount <= 1) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(height: 16),
-        Text(
-          'Statistics',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildStatItem(
-              context,
-              'Standard Deviation',
-              data.stdDev.toStringAsFixed(1),
-            ),
-            _buildStatItem(
-              context,
-              'Readings',
-              data.dataPointCount.toString(),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(BuildContext context, String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: Colors.grey[600]),
         ),
         Text(
           value,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
         ),
       ],
     );
   }
 
   @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    _animationController.forward();
+  }
+
+  Future<void> dismiss() async {
+    await _animationController.reverse();
+    widget.onClose();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const tooltipWidth = 280.0;
-    double top = position.dy - 20;
-    double left = position.dx - (tooltipWidth / 2);
-
-    // Adjust position to keep tooltip on screen
-    if (left < 12) left = 12;
-    if (left + tooltipWidth > screenSize.width - 12) {
-      left = screenSize.width - tooltipWidth - 12;
-    }
-    if (top < 12) top = position.dy + 20;
-
-    return Positioned(
-      left: left,
-      top: top,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: tooltipWidth,
-          constraints: BoxConstraints(
-            maxHeight: screenSize.height * 0.6,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _formatTimeRange(),
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) => Opacity(
+        opacity: _fadeAnimation.value,
+        child: Transform.scale(
+          scale: 0.95 + (0.05 * _fadeAnimation.value),
+          child: Card(
+            elevation: 8 * _fadeAnimation.value,
+            shadowColor: Colors.black26,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: GestureDetector(
+              onTap: () async {
+                widget.onTooltipTap?.call(widget.data);
+                await dismiss();
+              },
+              child: Container(
+                width: 200,
+                constraints: BoxConstraints(
+                  maxHeight: widget.screenSize.height * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _formatTimeRange(),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: dismiss,
+                            ),
+                          ],
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 16),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: onClose,
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        _buildSummarySection(context),
+                        if (widget.data.dataPointCount > 1)
+                          _buildMeasurementsList(context),
+                        if (widget.data.dataPointCount > 1) ...[
+                          const Divider(height: 16),
+                          Text(
+                            'Statistics',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Standard Deviation',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Colors.grey[600],
+                                        ),
+                                  ),
+                                  Text(
+                                    widget.data.stdDev.toStringAsFixed(1),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Readings',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          color: Colors.grey[600],
+                                        ),
+                                  ),
+                                  Text(
+                                    widget.data.dataPointCount.toString(),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  _buildSummarySection(context),
-                  _buildMeasurementsList(context),
-                  _buildStatistics(context),
-                ],
+                ),
               ),
             ),
           ),

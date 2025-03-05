@@ -1,43 +1,49 @@
+// O2ChartLabelDrawer
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../../models/date_range_type.dart';
 import '../../utils/date_formatter.dart';
 import '../models/processed_o2_saturation_data.dart';
+import '../styles/o2_saturation_chart_style.dart';
 
-class ChartLabelDrawer {
+class O2ChartLabelDrawer {
   final TextPainter _textPainter = TextPainter(
     textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
+    textAlign: TextAlign.right,
   );
 
-  void drawSideLabels(Canvas canvas, Rect chartArea, List<int> yAxisValues,
-      TextStyle textStyle) {
+  void drawSideLabels(
+    Canvas canvas,
+    Rect chartArea,
+    List<int> yAxisValues,
+    TextStyle textStyle,
+    double animationValue,
+  ) {
     for (var value in yAxisValues) {
       final y = chartArea.bottom -
           ((value - yAxisValues.first) /
                   (yAxisValues.last - yAxisValues.first)) *
               chartArea.height;
 
-      _textPainter.text = TextSpan(text: '$value%', style: textStyle);
-      _textPainter.layout();
+      _textPainter
+        ..text = TextSpan(
+          text: '$value%', // Add % sign for O2 saturation
+          style: textStyle.copyWith(
+            color: textStyle.color?.withOpacity(animationValue),
+          ),
+        )
+        ..layout();
 
-      // Draw background
-      canvas.drawRect(
-        Rect.fromLTWH(
-          0,
-          y - _textPainter.height / 2,
-          chartArea.left - 8,
-          _textPainter.height,
-        ),
-        Paint()..color = Colors.transparent,
+      // Calculate position with animation
+      final xOffset = chartArea.left - _textPainter.width - 8;
+      final animatedXOffset = Offset(
+        ui.lerpDouble(chartArea.left, xOffset, animationValue)!,
+        y - _textPainter.height / 2,
       );
 
-      // Draw text
-      _textPainter.paint(
-        canvas,
-        Offset(chartArea.left - _textPainter.width - 8,
-            y - _textPainter.height / 2),
-      );
+      _textPainter.paint(canvas, animatedXOffset);
     }
   }
 
@@ -46,48 +52,56 @@ class ChartLabelDrawer {
     Rect chartArea,
     List<ProcessedO2SaturationData> data,
     DateRangeType viewType,
+    O2SaturationChartStyle style,
+    double animationValue,
   ) {
     if (data.isEmpty) return;
 
-    final xStep = chartArea.width / (data.length - 1);
     final labelStep = _calculateLabelStep(data.length, viewType);
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
 
     for (var i = 0; i < data.length; i++) {
       if (i % labelStep != 0) continue;
 
-      final x = chartArea.left + (i * xStep);
+      final x = _calculateXPosition(i, data.length, chartArea);
       final label = DateFormatter.format(data[i].startDate, viewType);
 
-      _textPainter.text = TextSpan(
-        text: label,
-        style: const TextStyle(
-          fontSize: 10,
-          color: Colors.black,
-          fontWeight: FontWeight.normal,
-        ),
-      );
-      _textPainter.layout();
+      textPainter
+        ..text = TextSpan(
+          text: label,
+          style: style.dateLabelStyle?.copyWith(
+                color: style.dateLabelStyle?.color?.withOpacity(animationValue),
+              ) ??
+              TextStyle(
+                color: Colors.grey[600]?.withOpacity(animationValue),
+                fontSize: 12,
+              ),
+        )
+        ..layout();
 
-      final labelX = x - (_textPainter.width / 2);
-      final labelY = chartArea.bottom + 4;
-
-      // Draw background
-      canvas.drawRect(
-        Rect.fromLTWH(
-          labelX - 2,
-          labelY - 2,
-          _textPainter.width + 4,
-          _textPainter.height + 4,
-        ),
-        Paint()..color = Colors.transparent,
-      );
-
-      // Draw text
-      _textPainter.paint(
+      // Position labels with proper spacing
+      textPainter.paint(
         canvas,
-        Offset(labelX, labelY),
+        Offset(
+          x - (textPainter.width / 2),
+          chartArea.bottom + 8, // Increased spacing from chart area
+        ),
       );
     }
+  }
+
+  double _calculateXPosition(int index, int totalPoints, Rect chartArea) {
+    if (totalPoints <= 1) return chartArea.center.dx;
+
+    final effectiveWidth = chartArea.width;
+    const edgePadding = 15.0; // Increased for better visibility at edges
+    final availableWidth = effectiveWidth - (edgePadding * 2);
+    final pointSpacing = availableWidth / (totalPoints - 1);
+
+    return chartArea.left + edgePadding + (index * pointSpacing);
   }
 
   int _calculateLabelStep(int dataLength, DateRangeType viewType) {

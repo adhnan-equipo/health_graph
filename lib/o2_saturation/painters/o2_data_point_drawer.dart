@@ -8,6 +8,13 @@ import '../styles/o2_saturation_chart_style.dart';
 
 class O2DataPointDrawer {
   final Paint _dataPointPaint = Paint()..strokeCap = StrokeCap.round;
+  final Paint _linePaint = Paint()..style = PaintingStyle.stroke;
+  final Paint _fillPaint = Paint()..style = PaintingStyle.fill;
+
+  // Cache for performance optimization
+  String _lastDataHash = '';
+  Path? _o2Path;
+  Path? _pulsePath;
 
   void drawDataPoints(
     Canvas canvas,
@@ -21,18 +28,20 @@ class O2DataPointDrawer {
   ) {
     if (data.isEmpty) return;
 
-    final xStep = chartArea.width / (data.length - 1);
+    // Only rebuild paths if data changes
+    final currentHash =
+        '${data.length}_${data.isNotEmpty ? data.first.hashCode : 0}';
+    if (currentHash != _lastDataHash) {
+      _lastDataHash = currentHash;
+      _buildPaths(chartArea, data, minValue, maxValue);
+    }
 
-    // Draw trend lines first
+    // Draw trend lines with gradient
     _drawTrendLines(
       canvas,
       chartArea,
-      data,
-      xStep,
       style,
       animation,
-      minValue,
-      maxValue,
     );
 
     // Draw individual data points
@@ -40,69 +49,116 @@ class O2DataPointDrawer {
       final entry = data[i];
       if (entry.isEmpty) continue;
 
-      final x = chartArea.left + (i * xStep);
+      final x = _calculateXPosition(i, data.length, chartArea);
+
+      // Check if point is within drawable area
+      if (x >= chartArea.left && x <= chartArea.right) {
+        // Calculate O2 saturation positions
+        final o2Y =
+            _getYPosition(entry.avgValue, chartArea, minValue, maxValue);
+        final o2MinY = _getYPosition(
+            entry.minValue.toDouble(), chartArea, minValue, maxValue);
+        final o2MaxY = _getYPosition(
+            entry.maxValue.toDouble(), chartArea, minValue, maxValue);
+
+        // Calculate pulse rate positions if available
+        Offset? pulsePoint;
+        Offset? pulseMinPoint;
+        Offset? pulseMaxPoint;
+
+        if (entry.avgPulseRate != null) {
+          final pulseY =
+              _getYPosition(entry.avgPulseRate!, chartArea, minValue, maxValue);
+          pulsePoint = Offset(x, pulseY);
+
+          if (entry.minPulseRate != null && entry.maxPulseRate != null) {
+            final pulseMinY = _getYPosition(
+                entry.minPulseRate!.toDouble(), chartArea, minValue, maxValue);
+            final pulseMaxY = _getYPosition(
+                entry.maxPulseRate!.toDouble(), chartArea, minValue, maxValue);
+            pulseMinPoint = Offset(x, pulseMinY);
+            pulseMaxPoint = Offset(x, pulseMaxY);
+          }
+        }
+
+        final animationValue =
+            _calculateAnimationValue(i, data.length, animation);
+        final isSelected = entry == selectedData;
+
+        // Draw selection highlight if this point is selected
+        if (isSelected) {
+          _drawSelectionHighlight(canvas, x, chartArea, style, animationValue);
+        }
+
+        // Draw based on single or multiple readings
+        if (entry.dataPointCount == 1) {
+          // Single reading
+          _drawSinglePoint(
+              canvas, Offset(x, o2Y), pulsePoint, style, animationValue);
+        } else {
+          // Multiple readings (range)
+          _drawRangePoint(
+              canvas,
+              x,
+              Offset(x, o2Y),
+              Offset(x, o2MinY),
+              Offset(x, o2MaxY),
+              pulsePoint,
+              pulseMinPoint,
+              pulseMaxPoint,
+              style,
+              animationValue,
+              entry);
+        }
+
+        // Draw reading count badge if multiple readings
+        if (entry.dataPointCount > 1) {
+          _drawReadingCount(canvas, Offset(x, o2Y), entry.dataPointCount, style,
+              animationValue);
+        }
+      }
+    }
+  }
+
+  // Build paths for trend lines
+  void _buildPaths(
+    Rect chartArea,
+    List<ProcessedO2SaturationData> data,
+    double minValue,
+    double maxValue,
+  ) {
+    _o2Path = Path();
+    _pulsePath = Path();
+
+    bool isFirstValidO2 = true;
+    bool isFirstValidPulse = true;
+
+    for (var i = 0; i < data.length; i++) {
+      final entry = data[i];
+      if (entry.isEmpty) continue;
+
+      final x = _calculateXPosition(i, data.length, chartArea);
       final o2Y = _getYPosition(entry.avgValue, chartArea, minValue, maxValue);
-      final o2Position = Offset(x, o2Y);
 
-      final isSelected = entry == selectedData;
-
-      if (isSelected) {
-        _drawSelectionHighlight(canvas, x, chartArea, style);
+      // Add point to O2 path
+      if (isFirstValidO2) {
+        _o2Path!.moveTo(x, o2Y);
+        isFirstValidO2 = false;
+      } else {
+        _o2Path!.lineTo(x, o2Y);
       }
 
-      // Draw O2 saturation point
-      _drawPoint(
-        canvas,
-        o2Position,
-        style.primaryColor,
-        style,
-        animation,
-        isSelected,
-      );
-
-      // Draw min-max range if multiple readings
-      if (entry.dataPointCount > 1) {
-        _drawRange(
-          canvas,
-          x,
-          entry,
-          chartArea,
-          style,
-          animation,
-          minValue,
-          maxValue,
-        );
-      }
-
-      // Draw pulse rate point if available
+      // Add point to pulse path if available
       if (entry.avgPulseRate != null) {
-        final pulseY = _getYPosition(
-          entry.avgPulseRate!,
-          chartArea,
-          minValue,
-          maxValue,
-        );
-        final pulsePosition = Offset(x, pulseY);
+        final pulseY =
+            _getYPosition(entry.avgPulseRate!, chartArea, minValue, maxValue);
 
-        _drawPoint(
-          canvas,
-          pulsePosition,
-          style.pulseRateColor,
-          style,
-          animation,
-          isSelected,
-        );
-      }
-
-      // Draw reading count badge if multiple readings
-      if (entry.dataPointCount > 1) {
-        _drawReadingCount(
-          canvas,
-          o2Position,
-          entry.dataPointCount,
-          style,
-          animation,
-        );
+        if (isFirstValidPulse) {
+          _pulsePath!.moveTo(x, pulseY);
+          isFirstValidPulse = false;
+        } else {
+          _pulsePath!.lineTo(x, pulseY);
+        }
       }
     }
   }
@@ -110,133 +166,50 @@ class O2DataPointDrawer {
   void _drawTrendLines(
     Canvas canvas,
     Rect chartArea,
-    List<ProcessedO2SaturationData> data,
-    double xStep,
     O2SaturationChartStyle style,
     Animation<double> animation,
-    double minValue,
-    double maxValue,
   ) {
-    if (data.length < 2) return;
+    // Draw O2 trend line
+    if (_o2Path != null) {
+      _linePaint
+        ..color = style.primaryColor.withOpacity(0.5 * animation.value)
+        ..strokeWidth = style.lineThickness;
+      canvas.drawPath(_o2Path!, _linePaint);
 
-    final o2Path = Path();
-    final pulsePath = Path();
-    var isFirstValidPoint = true;
+      // Area fill under O2 line
+      if (animation.value > 0.5) {
+        final fillPath = Path.from(_o2Path!);
+        fillPath.lineTo(chartArea.right, chartArea.bottom);
+        fillPath.lineTo(chartArea.left, chartArea.bottom);
+        fillPath.close();
 
-    for (var i = 0; i < data.length; i++) {
-      if (data[i].isEmpty) continue;
-
-      final x = chartArea.left + (i * xStep);
-      final entry = data[i];
-
-      final o2Y = _getYPosition(
-        entry.avgValue,
-        chartArea,
-        minValue,
-        maxValue,
-      );
-
-      if (isFirstValidPoint) {
-        o2Path.moveTo(x, o2Y);
-        if (entry.avgPulseRate != null) {
-          final pulseY = _getYPosition(
-            entry.avgPulseRate!,
-            chartArea,
-            minValue,
-            maxValue,
-          );
-          pulsePath.moveTo(x, pulseY);
-        }
-        isFirstValidPoint = false;
-      } else {
-        o2Path.lineTo(x, o2Y);
-        if (entry.avgPulseRate != null) {
-          final pulseY = _getYPosition(
-            entry.avgPulseRate!,
-            chartArea,
-            minValue,
-            maxValue,
-          );
-          pulsePath.lineTo(x, pulseY);
-        }
+        _fillPaint
+          ..color = style.primaryColor.withOpacity(0.1 * animation.value)
+          ..style = PaintingStyle.fill;
+        canvas.drawPath(fillPath, _fillPaint);
       }
     }
 
-    final trendPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = style.lineThickness;
+    // Draw pulse trend line
+    if (_pulsePath != null) {
+      _linePaint
+        ..color = style.pulseRateColor.withOpacity(0.5 * animation.value)
+        ..strokeWidth = style.lineThickness;
+      canvas.drawPath(_pulsePath!, _linePaint);
 
-    // Draw O2 trend line
-    trendPaint.color =
-        style.primaryColor.withValues(alpha: 0.3 * animation.value);
-    canvas.drawPath(o2Path, trendPaint);
+      // Area fill under pulse line
+      if (animation.value > 0.5) {
+        final fillPath = Path.from(_pulsePath!);
+        fillPath.lineTo(chartArea.right, chartArea.bottom);
+        fillPath.lineTo(chartArea.left, chartArea.bottom);
+        fillPath.close();
 
-    // Draw pulse rate trend line
-    trendPaint.color =
-        style.pulseRateColor.withValues(alpha: 0.3 * animation.value);
-    canvas.drawPath(pulsePath, trendPaint);
-  }
-
-  void _drawRange(
-    Canvas canvas,
-    double x,
-    ProcessedO2SaturationData data,
-    Rect chartArea,
-    O2SaturationChartStyle style,
-    Animation<double> animation,
-    double minValue,
-    double maxValue,
-  ) {
-    final maxY =
-        _getYPosition(data.maxValue.toDouble(), chartArea, minValue, maxValue);
-    final minY =
-        _getYPosition(data.minValue.toDouble(), chartArea, minValue, maxValue);
-
-    final rangePaint = Paint()
-      ..color = style.primaryColor.withValues(alpha: 0.2 * animation.value)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    canvas.drawLine(
-      Offset(x, maxY),
-      Offset(x, minY),
-      rangePaint,
-    );
-  }
-
-  void _drawPoint(
-    Canvas canvas,
-    Offset position,
-    Color color,
-    O2SaturationChartStyle style,
-    Animation<double> animation,
-    bool isSelected,
-  ) {
-    if (isSelected) {
-      _dataPointPaint
-        ..style = PaintingStyle.fill
-        ..color = style.selectedHighlightColor;
-      canvas.drawCircle(position, style.pointRadius * 2, _dataPointPaint);
+        _fillPaint
+          ..color = style.pulseRateColor.withOpacity(0.1 * animation.value)
+          ..style = PaintingStyle.fill;
+        canvas.drawPath(fillPath, _fillPaint);
+      }
     }
-
-    _dataPointPaint
-      ..style = PaintingStyle.fill
-      ..color = color.withValues(alpha: animation.value);
-    canvas.drawCircle(
-      position,
-      style.pointRadius,
-      _dataPointPaint,
-    );
-
-    _dataPointPaint
-      ..style = PaintingStyle.stroke
-      ..color = Colors.white.withValues(alpha: animation.value)
-      ..strokeWidth = 1.5;
-    canvas.drawCircle(
-      position,
-      style.pointRadius,
-      _dataPointPaint,
-    );
   }
 
   void _drawSelectionHighlight(
@@ -244,9 +217,10 @@ class O2DataPointDrawer {
     double x,
     Rect chartArea,
     O2SaturationChartStyle style,
+    double animationValue,
   ) {
     final paint = Paint()
-      ..color = style.selectedHighlightColor.withValues(alpha: 0.2)
+      ..color = style.selectedHighlightColor.withOpacity(0.5 * animationValue)
       ..strokeWidth = 2;
 
     canvas.drawLine(
@@ -256,12 +230,129 @@ class O2DataPointDrawer {
     );
   }
 
+  void _drawSinglePoint(
+    Canvas canvas,
+    Offset o2Point,
+    Offset? pulsePoint,
+    O2SaturationChartStyle style,
+    double animationValue,
+  ) {
+    // Draw O2 point
+    _drawDataPoint(
+        canvas, o2Point, style.primaryColor, style.pointRadius, animationValue);
+
+    // Draw pulse point if available
+    if (pulsePoint != null) {
+      _drawDataPoint(canvas, pulsePoint, style.pulseRateColor,
+          style.pointRadius, animationValue);
+
+      // Draw connecting line
+      _linePaint
+        ..color = Colors.grey.withOpacity(0.3 * animationValue)
+        ..strokeWidth = 1.0;
+      canvas.drawLine(o2Point, pulsePoint, _linePaint);
+    }
+  }
+
+  void _drawRangePoint(
+    Canvas canvas,
+    double x,
+    Offset o2Point,
+    Offset o2MinPoint,
+    Offset o2MaxPoint,
+    Offset? pulsePoint,
+    Offset? pulseMinPoint,
+    Offset? pulseMaxPoint,
+    O2SaturationChartStyle style,
+    double animationValue,
+    ProcessedO2SaturationData data,
+  ) {
+    // Draw O2 range line
+    _linePaint
+      ..color = style.primaryColor.withOpacity(0.7 * animationValue)
+      ..strokeWidth = 2.0;
+    canvas.drawLine(o2MinPoint, o2MaxPoint, _linePaint);
+
+    // Draw O2 point
+    _drawDataPoint(
+        canvas, o2Point, style.primaryColor, style.pointRadius, animationValue);
+
+    // Draw min/max end caps for O2
+    _fillPaint
+      ..color = style.primaryColor.withOpacity(0.7 * animationValue)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(o2MinPoint, style.pointRadius * 0.7, _fillPaint);
+    canvas.drawCircle(o2MaxPoint, style.pointRadius * 0.7, _fillPaint);
+
+    // Draw pulse range if all points are available
+    if (pulsePoint != null && pulseMinPoint != null && pulseMaxPoint != null) {
+      // Draw pulse range line
+      _linePaint
+        ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
+        ..strokeWidth = 2.0;
+      canvas.drawLine(pulseMinPoint, pulseMaxPoint, _linePaint);
+
+      // Draw pulse point
+      _drawDataPoint(canvas, pulsePoint, style.pulseRateColor,
+          style.pointRadius, animationValue);
+
+      // Draw min/max end caps for pulse
+      _fillPaint
+        ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(pulseMinPoint, style.pointRadius * 0.7, _fillPaint);
+      canvas.drawCircle(pulseMaxPoint, style.pointRadius * 0.7, _fillPaint);
+
+      // Draw connecting line between O2 and pulse
+      _linePaint
+        ..color = Colors.grey.withOpacity(0.3 * animationValue)
+        ..strokeWidth = 1.0;
+      canvas.drawLine(o2Point, pulsePoint, _linePaint);
+    }
+  }
+
+  void _drawDataPoint(
+    Canvas canvas,
+    Offset position,
+    Color color,
+    double radius,
+    double animationValue,
+  ) {
+    final animatedRadius = radius * animationValue;
+
+    // Outer glow effect
+    _fillPaint
+      ..color = color.withOpacity(0.3 * animationValue)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    canvas.drawCircle(position, animatedRadius * 1.5, _fillPaint);
+    _fillPaint.maskFilter = null;
+
+    // Main circle
+    _fillPaint
+      ..color = color.withOpacity(0.9 * animationValue)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(position, animatedRadius, _fillPaint);
+
+    // Highlight effect (3D look)
+    _fillPaint..color = Colors.white.withOpacity(0.7 * animationValue);
+    final highlightPos = Offset(
+        position.dx - animatedRadius * 0.3, position.dy - animatedRadius * 0.3);
+    canvas.drawCircle(highlightPos, animatedRadius * 0.4, _fillPaint);
+
+    // Outline
+    _linePaint
+      ..color = Colors.white.withOpacity(0.7 * animationValue)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(position, animatedRadius, _linePaint);
+  }
+
   void _drawReadingCount(
     Canvas canvas,
     Offset position,
     int count,
     O2SaturationChartStyle style,
-    Animation<double> animation,
+    double animationValue,
   ) {
     final textPainter = TextPainter(
       text: TextSpan(
@@ -281,11 +372,13 @@ class O2DataPointDrawer {
       position.dy - style.pointRadius * 2,
     );
 
-    _dataPointPaint
-      ..style = PaintingStyle.fill
-      ..color = style.primaryColor.withValues(alpha: animation.value);
-    canvas.drawCircle(badgeCenter, badgeRadius, _dataPointPaint);
+    // Draw badge background
+    _fillPaint
+      ..color = style.primaryColor.withOpacity(animationValue)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(badgeCenter, badgeRadius, _fillPaint);
 
+    // Draw count text
     textPainter.paint(
       canvas,
       Offset(
@@ -295,6 +388,34 @@ class O2DataPointDrawer {
     );
   }
 
+  // Calculate animation value for smooth sequential animation
+  double _calculateAnimationValue(
+      int index, int totalPoints, Animation<double> animation) {
+    // Progressive animation with delay proportional to index
+    final delay = index / (totalPoints * 1.5);
+    final duration = 1.0 / totalPoints;
+
+    if (animation.value < delay) return 0.0;
+    if (animation.value > delay + duration) return 1.0;
+
+    // Ease-out cubic for smoother finish
+    final t = ((animation.value - delay) / duration).clamp(0.0, 1.0);
+    return 1.0 - pow(1.0 - t, 3);
+  }
+
+  // Helper method for calculating X position
+  double _calculateXPosition(int index, int totalPoints, Rect chartArea) {
+    if (totalPoints <= 1) return chartArea.center.dx;
+
+    final effectiveWidth = chartArea.width;
+    const edgePadding = 15.0; // Padding at edges
+    final availableWidth = effectiveWidth - (edgePadding * 2);
+    final pointSpacing = availableWidth / (totalPoints - 1);
+
+    return chartArea.left + edgePadding + (index * pointSpacing);
+  }
+
+  // Helper method to calculate Y position based on value
   double _getYPosition(
     double value,
     Rect chartArea,

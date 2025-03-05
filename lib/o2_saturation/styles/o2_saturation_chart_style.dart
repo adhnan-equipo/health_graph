@@ -1,3 +1,4 @@
+// lib/o2_saturation/styles/o2_saturation_chart_style.dart
 import 'package:flutter/material.dart';
 
 class O2SaturationChartStyle {
@@ -14,7 +15,8 @@ class O2SaturationChartStyle {
   final double lineThickness;
   final TextStyle? gridLabelStyle;
   final TextStyle? dateLabelStyle;
-  final Color rangePaintColor; // Add this property
+  final TextStyle? headerStyle;
+  final TextStyle? subHeaderStyle;
 
   const O2SaturationChartStyle({
     this.primaryColor = const Color(0xFF4CAF50),
@@ -25,12 +27,13 @@ class O2SaturationChartStyle {
     this.severeRangeColor = const Color(0xFFF44336),
     this.criticalRangeColor = const Color(0xFFD32F2F),
     this.gridLineColor = const Color(0xFFE2E8F0),
-    this.selectedHighlightColor = const Color(0x9DA1C8FF),
+    this.selectedHighlightColor = const Color(0x9D9FE8A1),
     this.pointRadius = 4.0,
     this.lineThickness = 2.0,
     this.gridLabelStyle,
     this.dateLabelStyle,
-    this.rangePaintColor = const Color(0xFF4CAF50), // Initialize the property
+    this.headerStyle,
+    this.subHeaderStyle,
   });
 
   TextStyle get defaultGridLabelStyle => TextStyle(
@@ -43,5 +46,16 @@ class O2SaturationChartStyle {
         color: Colors.grey[600],
         fontSize: 12,
         fontWeight: FontWeight.normal,
+      );
+
+  TextStyle get defaultHeaderStyle => const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF4A5568),
+      );
+
+  TextStyle get defaultSubHeaderStyle => const TextStyle(
+        fontSize: 16,
+        color: Color(0xFF718096),
       );
 }

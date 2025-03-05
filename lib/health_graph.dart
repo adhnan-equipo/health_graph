@@ -45,7 +45,6 @@ export '/o2_saturation/models/o2_saturation_data.dart';
 export '/o2_saturation/models/o2_saturation_range.dart';
 export '/o2_saturation/models/processed_o2_saturation_data.dart';
 export '/o2_saturation/o2_saturation_graph.dart';
-export '/o2_saturation/painters/chart_calculations.dart';
 export '/o2_saturation/painters/chart_reference_range_drawer.dart';
 export '/o2_saturation/painters/o2_data_point_drawer.dart';
 export '/o2_saturation/services/data_processor.dart';

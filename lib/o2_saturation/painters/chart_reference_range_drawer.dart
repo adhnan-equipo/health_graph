@@ -4,10 +4,12 @@ import '../models/o2_saturation_range.dart';
 import '../styles/o2_saturation_chart_style.dart';
 
 // lib/o2_saturation/painters/o2_reference_range_drawer.dart
+
+// O2ReferenceRangeDrawer
 class O2ReferenceRangeDrawer {
   final TextPainter _textPainter = TextPainter(
     textDirection: TextDirection.ltr,
-    textAlign: TextAlign.left,
+    textAlign: TextAlign.center,
   );
 
   void drawReferenceRanges(
@@ -16,132 +18,171 @@ class O2ReferenceRangeDrawer {
     O2SaturationChartStyle style,
     double minValue,
     double maxValue,
+    double animationValue,
   ) {
     final rangePaint = Paint()..style = PaintingStyle.fill;
 
     // Draw normal range (95-100%)
-    final normalRangeRect = _getRangeRect(
+    final normalRangeRect = _calculateRangeRect(
       chartArea,
-      O2SaturationRange.normalMax.toDouble(),
-      O2SaturationRange.normalMin.toDouble(),
+      O2SaturationRange.normalMin,
+      O2SaturationRange.normalMax,
       minValue,
       maxValue,
     );
 
-    // Fixed: Remove the incorrect assignment
-    rangePaint.color = style.normalRangeColor.withValues(alpha: 0.1);
-    canvas.drawRect(normalRangeRect, rangePaint);
+    rangePaint.color = style.normalRangeColor.withOpacity(0.1 * animationValue);
+    _drawAnimatedRange(canvas, normalRangeRect, rangePaint, animationValue);
+    _drawRangeLabel(
+      canvas,
+      normalRangeRect,
+      'Normal (95-100%)',
+      TextStyle(
+        color: style.normalRangeColor.withOpacity(0.7 * animationValue),
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+      ),
+    );
 
     // Draw mild range (90-94%)
-    final mildRangeRect = _getRangeRect(
+    final mildRangeRect = _calculateRangeRect(
       chartArea,
-      O2SaturationRange.normalMin.toDouble(),
-      O2SaturationRange.mildMin.toDouble(),
+      O2SaturationRange.mildMin,
+      O2SaturationRange.normalMin,
       minValue,
       maxValue,
     );
-    rangePaint.color = style.mildRangeColor.withValues(alpha: 0.1);
-    canvas.drawRect(mildRangeRect, rangePaint);
+    rangePaint.color = style.mildRangeColor.withOpacity(0.1 * animationValue);
+    _drawAnimatedRange(canvas, mildRangeRect, rangePaint, animationValue);
+    _drawRangeLabel(
+      canvas,
+      mildRangeRect,
+      'Mild (90-94%)',
+      TextStyle(
+        color: style.mildRangeColor.withOpacity(0.7 * animationValue),
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+      ),
+    );
 
     // Draw moderate range (85-89%)
-    final moderateRangeRect = _getRangeRect(
+    final moderateRangeRect = _calculateRangeRect(
       chartArea,
-      O2SaturationRange.mildMin.toDouble(),
-      O2SaturationRange.moderateMin.toDouble(),
+      O2SaturationRange.moderateMin,
+      O2SaturationRange.mildMin,
       minValue,
       maxValue,
     );
-    rangePaint.color = style.moderateRangeColor.withValues(alpha: 0.1);
-    canvas.drawRect(moderateRangeRect, rangePaint);
+    rangePaint.color =
+        style.moderateRangeColor.withOpacity(0.1 * animationValue);
+    _drawAnimatedRange(canvas, moderateRangeRect, rangePaint, animationValue);
+    _drawRangeLabel(
+      canvas,
+      moderateRangeRect,
+      'Moderate (85-89%)',
+      TextStyle(
+        color: style.moderateRangeColor.withOpacity(0.7 * animationValue),
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+      ),
+    );
 
     // Draw severe range (<85%)
-    final severeRangeRect = _getRangeRect(
-      chartArea,
-      O2SaturationRange.moderateMin.toDouble(),
-      O2SaturationRange.severeMin.toDouble(),
-      minValue,
-      maxValue,
-    );
-    rangePaint.color = style.severeRangeColor.withValues(alpha: 0.1);
-    canvas.drawRect(severeRangeRect, rangePaint);
-
-    // Draw labels
-    _drawRangeLabel(
-      canvas: canvas,
-      rect: normalRangeRect,
-      text: 'Normal (95-100%)',
-      style: TextStyle(
-        color: style.normalRangeColor.withValues(alpha: 0.7),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-      ),
-    );
-
-    _drawRangeLabel(
-      canvas: canvas,
-      rect: mildRangeRect,
-      text: 'Mild (90-94%)',
-      style: TextStyle(
-        color: style.mildRangeColor.withValues(alpha: 0.7),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
-      ),
-    );
+    if (minValue < O2SaturationRange.moderateMin) {
+      final severeRangeRect = _calculateRangeRect(
+        chartArea,
+        O2SaturationRange.severeMin,
+        O2SaturationRange.moderateMin,
+        minValue,
+        maxValue,
+      );
+      rangePaint.color =
+          style.severeRangeColor.withOpacity(0.1 * animationValue);
+      _drawAnimatedRange(canvas, severeRangeRect, rangePaint, animationValue);
+      _drawRangeLabel(
+        canvas,
+        severeRangeRect,
+        'Severe (<85%)',
+        TextStyle(
+          color: style.severeRangeColor.withOpacity(0.7 * animationValue),
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
+      );
+    }
   }
 
-  Rect _getRangeRect(
+  Rect _calculateRangeRect(
     Rect chartArea,
-    double topValue,
-    double bottomValue,
-    double minValue,
-    double maxValue,
+    int minValue,
+    int maxValue,
+    double chartMinValue,
+    double chartMaxValue,
   ) {
+    final minY = _getYPosition(
+        maxValue.toDouble(), chartArea, chartMinValue, chartMaxValue);
+    final maxY = _getYPosition(
+        minValue.toDouble(), chartArea, chartMinValue, chartMaxValue);
+
     return Rect.fromLTRB(
       chartArea.left,
-      _getYPosition(topValue, chartArea, minValue, maxValue),
+      minY,
       chartArea.right,
-      _getYPosition(bottomValue, chartArea, minValue, maxValue),
+      maxY,
     );
   }
 
-  void _drawRangeLabel({
-    required Canvas canvas,
-    required Rect rect,
-    required String text,
-    required TextStyle style,
-  }) {
+  void _drawRangeLabel(
+    Canvas canvas,
+    Rect rangeRect,
+    String text,
+    TextStyle style,
+  ) {
     _textPainter
-      ..text = TextSpan(text: text, style: style)
-      ..layout(maxWidth: rect.width - 20);
+      ..text = TextSpan(
+        text: text,
+        style: style,
+      )
+      ..layout();
 
-    final backgroundPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.8)
-      ..style = PaintingStyle.fill;
+    final centerY = rangeRect.center.dy - (_textPainter.height / 2);
 
-    final textBgRect = Rect.fromLTWH(
-      rect.left + 10,
-      rect.center.dy - _textPainter.height / 2,
-      _textPainter.width + 10,
+    // Draw background for better readability
+    final labelBackground = Rect.fromLTWH(
+      rangeRect.left + 10,
+      centerY,
+      _textPainter.width + 20,
       _textPainter.height,
     );
 
-    canvas.drawRect(textBgRect, backgroundPaint);
+    canvas.drawRect(
+      labelBackground,
+      Paint()..color = Colors.white.withOpacity(0.7),
+    );
 
     _textPainter.paint(
       canvas,
-      Offset(
-        rect.left + 15,
-        rect.center.dy - _textPainter.height / 2,
-      ),
+      Offset(rangeRect.left + 20, centerY),
     );
   }
 
-  double _getYPosition(
-    double value,
-    Rect chartArea,
-    double minValue,
-    double maxValue,
+  void _drawAnimatedRange(
+    Canvas canvas,
+    Rect rect,
+    Paint paint,
+    double animationValue,
   ) {
+    final center = rect.center;
+    final animatedRect = Rect.fromCenter(
+      center: center,
+      width: rect.width * animationValue,
+      height: rect.height,
+    );
+    canvas.drawRect(animatedRect, paint);
+  }
+
+  double _getYPosition(
+      double value, Rect chartArea, double minValue, double maxValue) {
     return chartArea.bottom -
         ((value - minValue) / (maxValue - minValue)) * chartArea.height;
   }
