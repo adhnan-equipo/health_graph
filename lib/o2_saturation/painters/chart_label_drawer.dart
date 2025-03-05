@@ -31,7 +31,7 @@ class O2ChartLabelDrawer {
         ..text = TextSpan(
           text: '$value%', // Add % sign for O2 saturation
           style: textStyle.copyWith(
-            color: textStyle.color?.withOpacity(animationValue),
+            color: textStyle.color?.withValues(alpha: animationValue),
           ),
         )
         ..layout();
@@ -73,10 +73,11 @@ class O2ChartLabelDrawer {
         ..text = TextSpan(
           text: label,
           style: style.dateLabelStyle?.copyWith(
-                color: style.dateLabelStyle?.color?.withOpacity(animationValue),
+                color: style.dateLabelStyle?.color
+                    ?.withValues(alpha: animationValue),
               ) ??
               TextStyle(
-                color: Colors.grey[600]?.withOpacity(animationValue),
+                color: Colors.grey[600]?.withValues(alpha: animationValue),
                 fontSize: 12,
               ),
         )

@@ -115,7 +115,7 @@ class O2SaturationChartPainter extends CustomPainter {
 
   void _drawEmptyState(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = style.gridLineColor.withOpacity(0.1 * animation.value)
+      ..color = style.gridLineColor.withValues(alpha: 0.1 * animation.value)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 

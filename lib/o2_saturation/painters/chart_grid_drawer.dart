@@ -13,7 +13,7 @@ class O2ChartGridDrawer {
     double animationValue,
   ) {
     final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.15 * animationValue)
+      ..color = Colors.grey.withValues(alpha: 0.15 * animationValue)
       ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 

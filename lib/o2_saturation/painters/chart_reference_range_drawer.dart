@@ -31,14 +31,15 @@ class O2ReferenceRangeDrawer {
       maxValue,
     );
 
-    rangePaint.color = style.normalRangeColor.withOpacity(0.1 * animationValue);
+    rangePaint.color =
+        style.normalRangeColor.withValues(alpha: 0.1 * animationValue);
     _drawAnimatedRange(canvas, normalRangeRect, rangePaint, animationValue);
     _drawRangeLabel(
       canvas,
       normalRangeRect,
       'Normal (95-100%)',
       TextStyle(
-        color: style.normalRangeColor.withOpacity(0.7 * animationValue),
+        color: style.normalRangeColor.withValues(alpha: 0.7 * animationValue),
         fontSize: 10,
         fontWeight: FontWeight.w500,
       ),
@@ -52,14 +53,15 @@ class O2ReferenceRangeDrawer {
       minValue,
       maxValue,
     );
-    rangePaint.color = style.mildRangeColor.withOpacity(0.1 * animationValue);
+    rangePaint.color =
+        style.mildRangeColor.withValues(alpha: 0.1 * animationValue);
     _drawAnimatedRange(canvas, mildRangeRect, rangePaint, animationValue);
     _drawRangeLabel(
       canvas,
       mildRangeRect,
       'Mild (90-94%)',
       TextStyle(
-        color: style.mildRangeColor.withOpacity(0.7 * animationValue),
+        color: style.mildRangeColor.withValues(alpha: 0.7 * animationValue),
         fontSize: 10,
         fontWeight: FontWeight.w500,
       ),
@@ -74,14 +76,14 @@ class O2ReferenceRangeDrawer {
       maxValue,
     );
     rangePaint.color =
-        style.moderateRangeColor.withOpacity(0.1 * animationValue);
+        style.moderateRangeColor.withValues(alpha: 0.1 * animationValue);
     _drawAnimatedRange(canvas, moderateRangeRect, rangePaint, animationValue);
     _drawRangeLabel(
       canvas,
       moderateRangeRect,
       'Moderate (85-89%)',
       TextStyle(
-        color: style.moderateRangeColor.withOpacity(0.7 * animationValue),
+        color: style.moderateRangeColor.withValues(alpha: 0.7 * animationValue),
         fontSize: 10,
         fontWeight: FontWeight.w500,
       ),
@@ -97,14 +99,14 @@ class O2ReferenceRangeDrawer {
         maxValue,
       );
       rangePaint.color =
-          style.severeRangeColor.withOpacity(0.1 * animationValue);
+          style.severeRangeColor.withValues(alpha: 0.1 * animationValue);
       _drawAnimatedRange(canvas, severeRangeRect, rangePaint, animationValue);
       _drawRangeLabel(
         canvas,
         severeRangeRect,
         'Severe (<85%)',
         TextStyle(
-          color: style.severeRangeColor.withOpacity(0.7 * animationValue),
+          color: style.severeRangeColor.withValues(alpha: 0.7 * animationValue),
           fontSize: 10,
           fontWeight: FontWeight.w500,
         ),
@@ -157,7 +159,7 @@ class O2ReferenceRangeDrawer {
 
     canvas.drawRect(
       labelBackground,
-      Paint()..color = Colors.white.withOpacity(0.7),
+      Paint()..color = Colors.white.withValues(alpha: 0.7),
     );
 
     _textPainter.paint(
