@@ -38,15 +38,16 @@ class BMIDataPointDrawer {
 
     // Draw trend line with enhanced effects
     _drawEnhancedTrendLine(canvas, chartArea, style, animation);
-
+    const edgePadding = 15.0; // Same as in chart_grid_drawer.dart
+    final availableWidth = chartArea.width - (edgePadding * 2);
     // Draw data points with emphasizing latest values
-    final xStep = chartArea.width / (data.length - 1).clamp(1, double.infinity);
+    final xStep = data.length > 1 ? availableWidth / (data.length - 1) : 0;
 
     for (var i = 0; i < data.length; i++) {
       final entry = data[i];
       if (entry.isEmpty) continue;
 
-      final x = chartArea.left + (i * xStep);
+      final x = chartArea.left + edgePadding + (i * xStep);
       final y = _getYPosition(entry.avgBMI, chartArea, minValue, maxValue);
       final position = Offset(x, y);
 
@@ -56,9 +57,9 @@ class BMIDataPointDrawer {
       final isSelected = entry == selectedData;
 
       // Draw selection highlight first if needed
-      if (isSelected) {
-        _drawSelectionHighlight(canvas, x, chartArea, style, animation.value);
-      }
+      // if (isSelected) {
+      //   _drawSelectionHighlight(canvas, x, chartArea, style, animation.value);
+      // }
 
       // Determine if this is the latest data point
       final isLatestPoint = i == data.length - 1;
@@ -87,12 +88,14 @@ class BMIDataPointDrawer {
     List<Offset> points = [];
     bool isFirstValid = true;
 
-    final xStep = chartArea.width / (data.length - 1).clamp(1, double.infinity);
+    const edgePadding = 15.0;
+    final availableWidth = chartArea.width - (edgePadding * 2);
+    final xStep = data.length > 1 ? availableWidth / (data.length - 1) : 0;
 
     for (var i = 0; i < data.length; i++) {
       if (data[i].isEmpty) continue;
 
-      final x = chartArea.left + (i * xStep);
+      final x = chartArea.left + edgePadding + (i * xStep);
       final y = _getYPosition(data[i].avgBMI, chartArea, minValue, maxValue);
 
       points.add(Offset(x, y));
@@ -137,8 +140,8 @@ class BMIDataPointDrawer {
       Offset(0, chartArea.top),
       Offset(0, chartArea.bottom),
       [
-        style.lineColor.withOpacity(0.8 * animation.value),
-        style.lineColor.withOpacity(0.4 * animation.value),
+        style.lineColor.withValues(alpha: 0.8 * animation.value),
+        style.lineColor.withValues(alpha: 0.4 * animation.value),
       ],
     );
 
@@ -179,8 +182,8 @@ class BMIDataPointDrawer {
           Offset(0, chartArea.top),
           Offset(0, chartArea.bottom),
           [
-            style.lineColor.withOpacity(fillOpacity),
-            style.lineColor.withOpacity(0),
+            style.lineColor.withValues(alpha: fillOpacity),
+            style.lineColor.withValues(alpha: 0),
           ],
         )
         ..style = PaintingStyle.fill;
@@ -192,44 +195,46 @@ class BMIDataPointDrawer {
     }
   }
 
-  void _drawSelectionHighlight(
-    Canvas canvas,
-    double x,
-    Rect chartArea,
-    BMIChartStyle style,
-    double animationValue,
-  ) {
-    // Draw vertical line highlight with animation
-    final paint = Paint()
-      ..color = style.selectedHighlightColor.withOpacity(animationValue)
-      ..strokeWidth = 2;
-
-    // Animate from center
-    final centerY = chartArea.center.dy;
-    final topY = ui.lerpDouble(centerY, chartArea.top, animationValue)!;
-    final bottomY = ui.lerpDouble(centerY, chartArea.bottom, animationValue)!;
-
-    canvas.drawLine(
-      Offset(x, topY),
-      Offset(x, bottomY),
-      paint,
-    );
-
-    // Add subtle glow effect
-    paint
-      ..color = style.selectedHighlightColor.withOpacity(0.3 * animationValue)
-      ..strokeWidth = 8
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-
-    canvas.drawLine(
-      Offset(x, topY),
-      Offset(x, bottomY),
-      paint,
-    );
-
-    // Reset mask filter
-    paint.maskFilter = null;
-  }
+  // void _drawSelectionHighlight(
+  //   Canvas canvas,
+  //   double x,
+  //   Rect chartArea,
+  //   BMIChartStyle style,
+  //   double animationValue,
+  // )
+  // {
+  //   // Draw vertical line highlight with animation
+  //   final paint = Paint()
+  //     ..color = style.selectedHighlightColor.withValues(alpha: animationValue)
+  //     ..strokeWidth = 2;
+  //
+  //   // Animate from center
+  //   final centerY = chartArea.center.dy;
+  //   final topY = ui.lerpDouble(centerY, chartArea.top, animationValue)!;
+  //   final bottomY = ui.lerpDouble(centerY, chartArea.bottom, animationValue)!;
+  //
+  //   canvas.drawLine(
+  //     Offset(x, topY),
+  //     Offset(x, bottomY),
+  //     paint,
+  //   );
+  //
+  //   // Add subtle glow effect
+  //   paint
+  //     ..color =
+  //         style.selectedHighlightColor.withValues(alpha: 0.3 * animationValue)
+  //     ..strokeWidth = 8
+  //     ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+  //
+  //   canvas.drawLine(
+  //     Offset(x, topY),
+  //     Offset(x, bottomY),
+  //     paint,
+  //   );
+  //
+  //   // Reset mask filter
+  //   paint.maskFilter = null;
+  // }
 
   void _drawEnhancedDataPoint(
     Canvas canvas,
@@ -269,7 +274,7 @@ class BMIDataPointDrawer {
 
       // Create a soft outer glow for latest point
       _dataPointPaint
-        ..color = pointColor.withOpacity(0.2 * animationValue)
+        ..color = pointColor.withValues(alpha: 0.2 * animationValue)
         ..style = PaintingStyle.fill
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawCircle(position, pulseRadius * 1.8, _dataPointPaint);
@@ -278,7 +283,7 @@ class BMIDataPointDrawer {
 
     // Create a soft glow effect
     _dataPointPaint
-      ..color = pointColor.withOpacity(0.3 * animationValue)
+      ..color = pointColor.withValues(alpha: 0.3 * animationValue)
       ..style = PaintingStyle.fill
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
     canvas.drawCircle(position, effectiveRadius * 1.5, _dataPointPaint);
@@ -289,8 +294,8 @@ class BMIDataPointDrawer {
       position,
       effectiveRadius,
       [
-        pointColor.withOpacity(0.9 * animationValue),
-        pointColor.withOpacity(0.7 * animationValue),
+        pointColor.withValues(alpha: 0.9 * animationValue),
+        pointColor.withValues(alpha: 0.7 * animationValue),
       ],
     );
 
@@ -304,7 +309,7 @@ class BMIDataPointDrawer {
       ..shader = null
       ..style = PaintingStyle.stroke
       ..strokeWidth = effectiveRadius * 0.2
-      ..color = Colors.white.withOpacity(0.9 * animationValue);
+      ..color = Colors.white.withValues(alpha: 0.9 * animationValue);
     canvas.drawCircle(position, effectiveRadius * 0.9, _dataPointPaint);
 
     // Draw a highlight to create a 3D effect
@@ -314,7 +319,7 @@ class BMIDataPointDrawer {
     );
 
     _dataPointPaint
-      ..color = Colors.white.withOpacity(0.6 * animationValue)
+      ..color = Colors.white.withValues(alpha: 0.6 * animationValue)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(highlightOffset, effectiveRadius * 0.3, _dataPointPaint);
 
@@ -336,14 +341,14 @@ class BMIDataPointDrawer {
       text: TextSpan(
         text: bmiValue.toStringAsFixed(1),
         style: TextStyle(
-          color: Colors.white.withOpacity(opacity),
+          color: Colors.white.withValues(alpha: opacity),
           fontSize: radius * 0.8,
           fontWeight: FontWeight.bold,
           shadows: [
             Shadow(
               offset: const Offset(1, 1),
               blurRadius: 2,
-              color: Colors.black.withOpacity(0.5 * opacity),
+              color: Colors.black.withValues(alpha: 0.5 * opacity),
             ),
           ],
         ),
@@ -377,7 +382,7 @@ class BMIDataPointDrawer {
     canvas.drawRRect(
       backgroundRRect,
       Paint()
-        ..color = Colors.black.withOpacity(0.4 * opacity)
+        ..color = Colors.black.withValues(alpha: 0.4 * opacity)
         ..style = PaintingStyle.fill,
     );
 

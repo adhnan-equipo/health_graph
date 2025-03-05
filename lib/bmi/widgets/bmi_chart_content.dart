@@ -249,9 +249,9 @@ class _BMIChartContentState extends State<BMIChartContent> {
             ),
           ),
           // Draw empty state overlay with message
-          const Center(
+          Center(
             child: EmptyStateOverlay(
-              message: 'No BMI data available',
+              message: widget.style.averageLabel,
               icon: Icons.monitor_weight_outlined,
             ),
           ),

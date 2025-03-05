@@ -20,31 +20,37 @@ class BMIChartStyle {
   final Color obeseRangeColor;
   final Color trendLineColor;
   final LinearGradient chartGradient;
-  final String? underweightLabel;
-  final String? normalLabel;
-  final String? overweightLabel;
-  final String? obeseLabel;
-  final String? measurementsLabel;
-  final String? summaryLabel;
-  final String? averageLabel;
-  final String? rangeLabel;
+  final String underweightLabel;
+  final String normalLabel;
+  final String overweightLabel;
+  final String obeseLabel;
+  final String measurementsLabel;
+  final String summaryLabel;
+  final String averageLabel;
+  final String rangeLabel;
+  final String changeLabel;
+  final String readingLabel;
+  final String lastReadingLabel;
+  final String weight;
+  final String height;
+  final String noData;
   final bool emphasizeLatestValue;
 
   const BMIChartStyle({
-    this.lineColor = const Color(0xFF3182CE),
+    this.lineColor = const Color(0xFFC5E3FF),
     this.pointColor = const Color(0xFF3182CE),
     this.gridLineColor = const Color(0xFFE2E8F0),
-    this.selectedHighlightColor = const Color(0x9DA1C8FF),
+    this.selectedHighlightColor = const Color(0x9DFFA1A1),
     this.pointRadius = 4.0,
     this.lineThickness = 2.0,
     this.gridLabelStyle,
     this.dateLabelStyle,
     this.headerStyle,
     this.subHeaderStyle,
-    this.normalRangeColor = const Color(0xFF4CAF50),
-    this.underweightRangeColor = const Color(0xFFFFA726),
-    this.overweightRangeColor = const Color(0xFFF44336),
-    this.obeseRangeColor = const Color(0xFFD32F2F),
+    this.normalRangeColor = Colors.green,
+    this.underweightRangeColor = Colors.blue,
+    this.overweightRangeColor = Colors.orange,
+    this.obeseRangeColor = Colors.red,
     this.trendLineColor = const Color(0xFF9E9E9E),
     this.chartGradient = const LinearGradient(
       begin: Alignment.topCenter,
@@ -53,12 +59,18 @@ class BMIChartStyle {
     ),
     this.underweightLabel = 'Underweight',
     this.normalLabel = 'Normal',
-    this.overweightLabel = 'Healthy',
+    this.overweightLabel = 'Overweight',
     this.obeseLabel = 'Obese',
     this.measurementsLabel = 'Measurements',
     this.summaryLabel = 'Summary',
     this.averageLabel = 'Average BMI',
     this.rangeLabel = 'Range',
+    this.changeLabel = 'change',
+    this.lastReadingLabel = 'lastReading',
+    this.readingLabel = 'reading',
+    this.height = 'height',
+    this.weight = 'weight',
+    this.noData = 'No BMI data available',
     this.emphasizeLatestValue = true,
   });
 

@@ -82,7 +82,7 @@ class _BMITooltipState extends State<BMITooltip>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Latest Reading',
+              widget.style.lastReadingLabel,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -127,12 +127,12 @@ class _BMITooltipState extends State<BMITooltip>
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildMeasurementDetail(
-              'Weight',
+              widget.style.weight,
               '${latestMeasurement.weight.toStringAsFixed(1)} kg',
               Icons.monitor_weight_outlined,
             ),
             _buildMeasurementDetail(
-              'Height',
+              widget.style.height,
               '${latestMeasurement.height.toStringAsFixed(1)} cm',
               Icons.height_outlined,
             ),
@@ -198,18 +198,18 @@ class _BMITooltipState extends State<BMITooltip>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _buildHistoryStat(
-              'Readings',
+              widget.style.readingLabel,
               widget.data.dataPointCount.toString(),
               Icons.analytics_outlined,
             ),
             _buildHistoryStat(
-              'Average',
+              widget.style.averageLabel,
               widget.data.avgBMI.toStringAsFixed(1),
               Icons.show_chart,
               _getCategoryColor(widget.data.avgBMI),
             ),
             _buildHistoryStat(
-              'Change',
+              widget.style.changeLabel,
               _calculateChange(),
               _getChangeIcon(),
               _getChangeColor(),

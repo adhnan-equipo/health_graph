@@ -31,7 +31,7 @@ class ChartLabelDrawer {
         ..text = TextSpan(
           text: value.toStringAsFixed(1), // Format BMI values with 1 decimal
           style: textStyle.copyWith(
-            color: textStyle.color?.withOpacity(animationValue),
+            color: textStyle.color?.withValues(alpha: animationValue),
           ),
         )
         ..layout();
@@ -47,6 +47,8 @@ class ChartLabelDrawer {
     }
   }
 
+// Update the drawBottomLabels method:
+
   void drawBottomLabels(
     Canvas canvas,
     Rect chartArea,
@@ -58,26 +60,33 @@ class ChartLabelDrawer {
     if (data.isEmpty) return;
 
     final labelStep = _calculateLabelStep(data.length, viewType);
-    final xStep = chartArea.width / (data.length - 1).clamp(1, double.infinity);
+
+    // Use consistent edge padding for x position calculation
+    const edgePadding = 15.0; // Same as in chart_grid_drawer.dart
+    final availableWidth = chartArea.width - (edgePadding * 2);
+    final xStep = data.length > 1 ? availableWidth / (data.length - 1) : 0;
 
     for (var i = 0; i < data.length; i++) {
       // Skip labels based on step size to avoid overcrowding
       if (i % labelStep != 0) continue;
 
-      final x = chartArea.left + (i * xStep);
+      // Calculate x position with consistent edge padding
+      final x = chartArea.left + edgePadding + (i * xStep);
       final label = DateFormatter.format(data[i].startDate, viewType);
 
       _textPainter
         ..text = TextSpan(
           text: label,
           style: (style.dateLabelStyle ?? style.defaultDateLabelStyle).copyWith(
-            color: style.dateLabelStyle?.color?.withOpacity(animationValue),
+            color:
+                style.dateLabelStyle?.color?.withValues(alpha: animationValue),
           ),
         )
         ..layout();
 
       // Position labels with proper spacing and animation
-      final labelY = chartArea.bottom + 8;
+      final labelY =
+          chartArea.bottom + 12; // Increased from 8 for better spacing
       final labelX = x - (_textPainter.width / 2);
 
       // Animate from bottom up

@@ -10,7 +10,6 @@ import 'bmi_data_point_drawer.dart';
 import 'chart_background_drawer.dart';
 import 'chart_grid_drawer.dart';
 import 'chart_label_drawer.dart';
-import 'chart_reference_range_drawer.dart';
 
 class BMIChartPainter extends CustomPainter {
   final List<ProcessedBMIData> data;
@@ -27,8 +26,6 @@ class BMIChartPainter extends CustomPainter {
   late final ChartGridDrawer _gridDrawer = ChartGridDrawer();
   late final ChartLabelDrawer _labelDrawer = ChartLabelDrawer();
   late final BMIDataPointDrawer _dataPointDrawer = BMIDataPointDrawer();
-  late final ChartReferenceRangeDrawer _rangeDrawer =
-      ChartReferenceRangeDrawer();
 
   BMIChartPainter({
     required this.data,
@@ -108,7 +105,7 @@ class BMIChartPainter extends CustomPainter {
 
   void _drawEmptyState(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = style.gridLineColor.withOpacity(0.1 * animation.value)
+      ..color = style.gridLineColor.withValues(alpha: 0.1 * animation.value)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -161,7 +158,7 @@ class BMIChartPainter extends CustomPainter {
       if ((endY - startY).abs() < 10) return;
 
       // Draw range background with animation
-      rangePaint.color = color.withOpacity(0.1 * animation.value);
+      rangePaint.color = color.withValues(alpha: 0.1 * animation.value);
       final rangeRect = Rect.fromLTRB(
         chartArea.left,
         startY,
@@ -194,12 +191,12 @@ class BMIChartPainter extends CustomPainter {
 
     // Draw ranges from bottom to top with animation
     drawRangeIfVisible(
-        30.0, 40.0, style.obeseLabel ?? 'Obese', style.obeseRangeColor);
+        30.0, 100.0, style.obeseLabel ?? 'Obese', style.obeseRangeColor);
     drawRangeIfVisible(25.0, 30.0, style.overweightLabel ?? 'Overweight',
         style.overweightRangeColor);
     drawRangeIfVisible(
         18.5, 25.0, style.normalLabel ?? 'Healthy', style.normalRangeColor);
-    drawRangeIfVisible(15.0, 18.5, style.underweightLabel ?? 'Underweight',
+    drawRangeIfVisible(0.0, 18.5, style.underweightLabel ?? 'Underweight',
         style.underweightRangeColor);
   }
 
@@ -213,7 +210,7 @@ class BMIChartPainter extends CustomPainter {
       text: TextSpan(
         text: text,
         style: style.copyWith(
-          color: style.color?.withOpacity(animation.value),
+          color: style.color?.withValues(alpha: animation.value),
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -241,7 +238,7 @@ class BMIChartPainter extends CustomPainter {
 
     canvas.drawRect(
       backgroundRect,
-      Paint()..color = Colors.white.withOpacity(0.8 * animation.value),
+      Paint()..color = Colors.white.withValues(alpha: 0.4),
     );
 
     // Draw text centered in the range with animation

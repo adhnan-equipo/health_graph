@@ -111,9 +111,9 @@ class BMIChartCalculations {
 
   static Rect calculateChartArea(Size size) {
     const leftPadding = 35.0;
-    const rightPadding = 10.0;
+    const rightPadding = 10.0; // Increased from 10.0
     const topPadding = 10.0;
-    const bottomPadding = 30.0;
+    const bottomPadding = 40.0; // Increased from 30.0 for better label space
 
     return Rect.fromLTRB(
       leftPadding,
