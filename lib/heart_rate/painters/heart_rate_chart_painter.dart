@@ -379,10 +379,21 @@ class HeartRateChartPainter extends CustomPainter {
     }
 
     // Draw x-axis (time) labels with animation - only draw a reasonable number
-    final labelStep = _calculateLabelStep();
-    final maxLabels = 8; // Maximum number of labels to draw
-    final step = max(labelStep, (data.length / maxLabels).ceil());
-
+    final labelStep =
+        viewType == DateRangeType.year ? 1 : _calculateLabelStep();
+    final maxLabels = viewType == DateRangeType.year ? 12 : 8;
+    final step = viewType == DateRangeType.year
+        ? (data.length / 12).ceil()
+        : // Ensure 12 points for year
+        max(labelStep, (data.length / maxLabels).ceil());
+    if (viewType == DateRangeType.year) {
+      _drawYearViewLabels(canvas, step);
+    } else {
+      // Original label drawing code for other view types
+      for (var i = 0; i < data.length; i += step) {
+        // Existing label drawing code...
+      }
+    }
     for (var i = 0; i < data.length; i += step) {
       if (i >= data.length) continue;
 
@@ -415,6 +426,35 @@ class HeartRateChartPainter extends CustomPainter {
     }
   }
 
+// New method for year view labels
+  void _drawYearViewLabels(Canvas canvas, int step) {
+    // Calculate month positions based on chart width
+    final monthWidth = chartArea.width / 12;
+
+    for (int month = 1; month <= 12; month++) {
+      final x = chartArea.left + ((month - 1) * monthWidth) + (monthWidth / 2);
+
+      // Get month label from formatter
+      final label = DateFormatter.getMonthLabel(month);
+      final opacity = animation.value.clamp(0.0, 1.0);
+
+      _textPainter
+        ..text = TextSpan(
+          text: label,
+          style: style.labelStyle.copyWith(
+            color: style.labelColor.withValues(alpha: opacity),
+          ),
+        )
+        ..layout();
+
+      // Position label centered under each month
+      _textPainter.paint(
+        canvas,
+        Offset(x - _textPainter.width / 2, chartArea.bottom + 8),
+      );
+    }
+  }
+
   int _calculateLabelStep() {
     if (data.length <= 7) return 1;
 
@@ -426,7 +466,7 @@ class HeartRateChartPainter extends CustomPainter {
       case DateRangeType.month:
         return (data.length / 8).round().clamp(1, 4);
       case DateRangeType.year:
-        return (data.length / 12).round().clamp(1, 3);
+        return 1;
     }
   }
 

@@ -20,6 +20,10 @@ class DateFormatter {
     }
   }
 
+  static String getMonthLabel(int month) {
+    return _monthInitial[month] ?? '';
+  }
+
   // Single letter weekday mapping
   static const _weekdayInitial = {
     1: 'Mon',
