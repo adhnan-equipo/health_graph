@@ -1,4 +1,6 @@
 // lib/heart_rate/models/processed_heart_rate_data.dart
+import 'dart:math';
+
 import '../models/heart_rate_data.dart';
 import '../models/heart_rate_range.dart';
 
@@ -51,8 +53,8 @@ class ProcessedHeartRateData {
   /// Get the heart rate zone description
   String get zoneDescription => HeartRateRange.getZoneDescription(avgValue);
 
-  /// Get range width (max - min)
-  int get rangeWidth => maxValue - minValue;
+  /// Get range width (max - min), ensuring it's never negative
+  int get rangeWidth => max(0, maxValue - minValue);
 
   /// Check if this point has a significant range
   bool get hasSignificantRange => rangeWidth > 5;

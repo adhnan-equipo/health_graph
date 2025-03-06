@@ -199,7 +199,9 @@ class HeartRateDataProcessor {
     // Sort by date to ensure correct sequence
     measurements.sort((a, b) => a.date.compareTo(b.date));
 
-    final rmssd = <double>[];
+    // Use RMSSD (Root Mean Square of Successive Differences) method
+    // which is a time-domain measure of heart rate variability
+    final rrIntervals = <double>[];
     double sumSquaredDiffs = 0.0;
     int validPairs = 0;
 
@@ -214,16 +216,33 @@ class HeartRateDataProcessor {
       final currentRR = 60000 / current.value;
       final previousRR = 60000 / previous.value;
 
-      // Calculate squared difference
-      final diff = currentRR - previousRR;
-      sumSquaredDiffs += diff * diff;
-      validPairs++;
+      rrIntervals.add(currentRR);
+
+      // Only calculate differences for consecutive measurements that are close in time
+      // (within 10 seconds of each other to avoid large gaps)
+      if (current.date.difference(previous.date).inSeconds <= 10) {
+        final diff = currentRR - previousRR;
+        sumSquaredDiffs += diff * diff;
+        validPairs++;
+      }
     }
 
     if (validPairs == 0) return null;
 
-    // Root mean square of successive differences
-    return math.sqrt(sumSquaredDiffs / validPairs);
+    // Calculate RMSSD (Root Mean Square of Successive Differences)
+    final rmssd = math.sqrt(sumSquaredDiffs / validPairs);
+
+    // Calculate SDNN (Standard Deviation of NN intervals) as an alternative measure
+    double? sdnn;
+    if (rrIntervals.isNotEmpty) {
+      final mean = rrIntervals.reduce((a, b) => a + b) / rrIntervals.length;
+      final sumSquaredDeviations =
+          rrIntervals.fold(0.0, (sum, rr) => sum + math.pow(rr - mean, 2));
+      sdnn = math.sqrt(sumSquaredDeviations / rrIntervals.length);
+    }
+
+    // Return RMSSD as the primary HRV measure
+    return rmssd;
   }
 
   /// Generate empty data points for the given date range
@@ -316,9 +335,13 @@ class HeartRateDataProcessor {
     final hrvValues =
         chunk.where((d) => d.hrv != null).map((d) => d.hrv!).toList();
 
-    // Calculate combined standard deviation
+    // Calculate combined standard deviation with more numerical stability
     final stdDev = _combinedStdDev(
         chunk.map((d) => (d.stdDev, d.avgValue, d.dataPointCount)).toList());
+
+    // Limit number of original measurements to preserve memory
+    // Select key measurements like min, max, and a few representative points
+    final limitedMeasurements = _limitMeasurements(allMeasurements, 50);
 
     return ProcessedHeartRateData(
       startDate: chunk.first.startDate,
@@ -329,7 +352,7 @@ class HeartRateDataProcessor {
       dataPointCount: totalWeight,
       stdDev: stdDev,
       isRangeData: true,
-      originalMeasurements: allMeasurements,
+      originalMeasurements: limitedMeasurements,
       hrv: hrvValues.isEmpty
           ? null
           : hrvValues.reduce((a, b) => a + b) / hrvValues.length,
@@ -337,7 +360,68 @@ class HeartRateDataProcessor {
     );
   }
 
+// New method to intelligently limit measurements
+  static List<HeartRateData> _limitMeasurements(
+      List<HeartRateData> measurements, int maxCount) {
+    if (measurements.length <= maxCount) return measurements;
+
+    // Sort by date
+    measurements.sort((a, b) => a.date.compareTo(b.date));
+
+    if (measurements.length <= 3) return measurements;
+
+    // Always include first, last, min, and max points
+    final result = <HeartRateData>[];
+    result.add(measurements.first);
+
+    // Find min and max values
+    HeartRateData minHR = measurements[0];
+    HeartRateData maxHR = measurements[0];
+
+    for (var i = 1; i < measurements.length - 1; i++) {
+      if (measurements[i].value < minHR.value) minHR = measurements[i];
+      if (measurements[i].value > maxHR.value) maxHR = measurements[i];
+    }
+
+    // Add min and max if they're not already the first or last point
+    if (minHR != measurements.first && minHR != measurements.last) {
+      result.add(minHR);
+    }
+
+    if (maxHR != measurements.first &&
+        maxHR != measurements.last &&
+        maxHR != minHR) {
+      result.add(maxHR);
+    }
+
+    // Add last point
+    if (measurements.last != minHR && measurements.last != maxHR) {
+      result.add(measurements.last);
+    }
+
+    // If we still have room, add evenly spaced points
+    final remainingSlots = maxCount - result.length;
+    if (remainingSlots > 0 && measurements.length > result.length) {
+      final step = (measurements.length - 1) / (remainingSlots + 1);
+      for (var i = 1; i <= remainingSlots; i++) {
+        final index = (i * step).round();
+        if (index > 0 && index < measurements.length) {
+          final point = measurements[index];
+          if (!result.contains(point)) {
+            result.add(point);
+          }
+        }
+      }
+    }
+
+    // Sort by date again to ensure correct order
+    result.sort((a, b) => a.date.compareTo(b.date));
+
+    return result;
+  }
+
   /// Calculate combined standard deviation for aggregated data
+  /// Calculate combined standard deviation for aggregated data with improved numerical stability
   static double _combinedStdDev(
     List<(double stdDev, double mean, int count)> values,
   ) {
@@ -345,18 +429,32 @@ class HeartRateDataProcessor {
     final totalCount = values.fold(0, (sum, item) => sum + item.$3);
     if (totalCount <= 1) return values.first.$1;
 
-    // Calculate combined mean
-    final combinedMean =
-        values.fold(0.0, (sum, item) => sum + item.$2 * item.$3) / totalCount;
+    // Calculate combined mean with Welford's online algorithm for numerical stability
+    double combinedMean = 0.0;
+    double m2 = 0.0;
+    int count = 0;
 
-    // Calculate combined variance
-    final combinedVariance = values.fold(0.0, (sum, item) {
-          final variance = item.$1 * item.$1;
-          final meanDiffSquared = math.pow(item.$2 - combinedMean, 2);
-          return sum + (variance + meanDiffSquared) * item.$3;
-        }) /
-        totalCount;
+    for (final item in values) {
+      final itemMean = item.$2;
+      final itemVariance = item.$1 * item.$1;
+      final itemCount = item.$3;
 
-    return math.sqrt(combinedVariance);
+      for (int i = 0; i < itemCount; i++) {
+        count++;
+        final delta = itemMean - combinedMean;
+        combinedMean += delta / count;
+        final delta2 = itemMean - combinedMean;
+        m2 += delta * delta2;
+      }
+
+      // Add the internal variance of this group
+      m2 += itemVariance * (itemCount - 1);
+    }
+
+    if (count <= 1) return 0.0;
+
+    // Calculate final variance and return standard deviation
+    final variance = m2 / (count - 1);
+    return math.sqrt(math.max(0, variance)); // Ensure non-negative value
   }
 }

@@ -125,12 +125,12 @@ class HeartRateChartCalculations {
 
   /// Find data point near the given position
   static ProcessedHeartRateData? findNearestDataPoint(
-    Offset position,
-    Rect chartArea,
-    List<ProcessedHeartRateData> data,
-    double minValue,
-    double maxValue,
-  ) {
+      Offset position,
+      Rect chartArea,
+      List<ProcessedHeartRateData> data,
+      double minValue,
+      double maxValue,
+      {double hitTestThreshold = 30}) {
     if (data.isEmpty) return null;
 
     // Calculate the distance for each data point
@@ -145,7 +145,7 @@ class HeartRateChartCalculations {
 
       final distance = (position - Offset(x, y)).distance;
 
-      if (distance < minDistance && distance < _hitTestThreshold) {
+      if (distance < minDistance && distance < hitTestThreshold) {
         minDistance = distance;
         nearestPoint = data[i];
       }

@@ -5,6 +5,7 @@ import '../models/heart_rate_chart_config.dart';
 import '../models/heart_rate_data.dart';
 import '../models/processed_heart_rate_data.dart';
 import '../services/heart_rate_data_processor.dart';
+import '../utils/collection_utils.dart';
 
 class HeartRateChartController extends ChangeNotifier {
   List<HeartRateData> _data;
@@ -54,7 +55,7 @@ class HeartRateChartController extends ChangeNotifier {
   }
 
   void updateData(List<HeartRateData> newData) {
-    if (_listEquals(_data, newData)) return;
+    if (CollectionUtils.listEquals(_data, newData)) return;
     _data = newData;
     _processData();
   }
@@ -65,15 +66,7 @@ class HeartRateChartController extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool _listEquals<T>(List<T> a, List<T> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
+  @override
   void dispose() {
     super.dispose();
   }

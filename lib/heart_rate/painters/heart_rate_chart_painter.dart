@@ -33,6 +33,7 @@ class HeartRateChartPainter extends CustomPainter {
 
   // Cache for performance optimization
   String _lastDataHash = '';
+  String _lastAnimationHash = '';
   Path? _heartRatePath;
   Path? _restingRatePath;
   Path? _maxRatePath;
@@ -90,9 +91,64 @@ class HeartRateChartPainter extends CustomPainter {
 
       canvas.restore();
     } catch (e) {
-      // Draw a fallback if any rendering errors occur
+      // Log error and draw fallback
+      _logRenderingError(e);
       _drawErrorState(canvas, size);
     }
+  }
+
+// New method to log errors
+  void _logRenderingError(dynamic error) {
+    // In production, we'd use a proper logging system
+    // For now, print to console in debug mode
+    print('Heart rate chart rendering error: $error');
+  }
+
+  void _drawHeartRateData(Canvas canvas) {
+    if (data.isEmpty) return;
+
+    // Separate data hash from animation hash for better caching
+    final currentDataHash = '${data.length}_${data.first.hashCode}';
+    final currentAnimationHash = animation.value.toStringAsFixed(2);
+
+    // Only rebuild paths if data changed, not just animation
+    if (_lastDataHash != currentDataHash) {
+      _buildPaths();
+      _lastDataHash = currentDataHash;
+      _lastAnimationHash = currentAnimationHash;
+    } else if (_heartRatePath == null) {
+      // Rebuild if paths are null for some reason
+      _buildPaths();
+      _lastAnimationHash = currentAnimationHash;
+    }
+
+    // Skip if paths couldn't be built properly
+    if (_heartRatePath == null) return;
+
+    // Draw range area (shaded area between min and max)
+    _drawRangeArea(canvas);
+
+    // Draw resting heart rate line if exists
+    if (_restingRatePath != null) {
+      _linePaint
+        ..color =
+            style.restingRateColor.withValues(alpha: 0.6 * animation.value)
+        ..strokeWidth = style.lineThickness - 0.5
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawPath(_restingRatePath!, _linePaint);
+    }
+
+    // Draw main heart rate line
+    _linePaint
+      ..color = style.primaryColor.withValues(alpha: 0.8 * animation.value)
+      ..strokeWidth = style.lineThickness
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(_heartRatePath!, _linePaint);
+
+    // Draw data points - limit for performance
+    _drawDataPoints(canvas);
   }
 
   void _drawBackground(Canvas canvas) {
@@ -374,46 +430,6 @@ class HeartRateChartPainter extends CustomPainter {
     }
   }
 
-  void _drawHeartRateData(Canvas canvas) {
-    if (data.isEmpty) return;
-
-    // Build paths if data has changed or animation is running
-    final currentHash =
-        '${data.length}_${data.first.hashCode}_${animation.value}';
-    if (_lastDataHash != currentHash) {
-      _buildPaths();
-      _lastDataHash = currentHash;
-    }
-
-    // Skip if paths couldn't be built properly
-    if (_heartRatePath == null) return;
-
-    // Draw range area (shaded area between min and max)
-    _drawRangeArea(canvas);
-
-    // Draw resting heart rate line if exists
-    if (_restingRatePath != null) {
-      _linePaint
-        ..color =
-            style.restingRateColor.withValues(alpha: 0.6 * animation.value)
-        ..strokeWidth = style.lineThickness - 0.5
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawPath(_restingRatePath!, _linePaint);
-    }
-
-    // Draw main heart rate line
-    _linePaint
-      ..color = style.primaryColor.withValues(alpha: 0.8 * animation.value)
-      ..strokeWidth = style.lineThickness
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(_heartRatePath!, _linePaint);
-
-    // Draw data points - limit for performance
-    _drawDataPoints(canvas);
-  }
-
   void _buildPaths() {
     try {
       // Initialize paths
@@ -634,9 +650,24 @@ class HeartRateChartPainter extends CustomPainter {
   }
 
   void _drawDataPoints(Canvas canvas) {
-    // Limit the number of points drawn for better performance
-    final step = max(1, (data.length / 20).round());
+    // Determine optimal rendering strategy based on data density
+    final isHighDensity = data.length > 100;
+    final devicePixelRatio = WidgetsBinding.instance.window.devicePixelRatio;
 
+    // Scale hit test threshold by device pixel ratio for consistent touch behavior
+    // final adjustedHitThreshold = _hitTestThreshold * devicePixelRatio;
+
+    // Adaptive step calculation
+    final step = _calculateAdaptiveStep(data.length);
+
+    // Create a more efficient paint for high density rendering
+    if (isHighDensity) {
+      _pointPaint.isAntiAlias = false; // Disable anti-aliasing for performance
+    } else {
+      _pointPaint.isAntiAlias = true; // Enable for quality with fewer points
+    }
+
+    // Draw regularly spaced points
     for (var i = 0; i < data.length; i += step) {
       if (i >= data.length) continue;
 
@@ -657,7 +688,9 @@ class HeartRateChartPainter extends CustomPainter {
       final isSelected = selectedData == entry;
 
       // Base point radius - use smaller radius for better performance
-      var pointRadius = style.pointRadius * 0.8;
+      var pointRadius = isHighDensity
+          ? style.pointRadius * 0.5 // Even smaller for high density
+          : style.pointRadius * 0.8; // Regular small radius
 
       // Larger radius for selected point
       if (isSelected) {
@@ -667,12 +700,15 @@ class HeartRateChartPainter extends CustomPainter {
       // Apply animation to radius
       final animatedRadius = pointRadius * animation.value;
 
-      // Draw white outline
-      _pointPaint
-        ..color = Colors.white.withValues(alpha: animation.value)
-        ..style = PaintingStyle.fill;
+      // Only draw outline for selected or steps with larger interval
+      if (isSelected || i % (step * 3) == 0 || !isHighDensity) {
+        // Draw white outline
+        _pointPaint
+          ..color = Colors.white.withValues(alpha: animation.value)
+          ..style = PaintingStyle.fill;
 
-      canvas.drawCircle(Offset(x, y), animatedRadius + 1, _pointPaint);
+        canvas.drawCircle(Offset(x, y), animatedRadius + 1, _pointPaint);
+      }
 
       // Draw colored center
       _pointPaint
@@ -682,50 +718,67 @@ class HeartRateChartPainter extends CustomPainter {
 
       canvas.drawCircle(Offset(x, y), animatedRadius, _pointPaint);
 
-      // Only draw range endpoints for selected point or with larger step
-      if (isSelected && entry.isRangeData && entry.dataPointCount > 1) {
+      // Only draw range endpoints for selected point or with larger step and not high density
+      if ((isSelected || i % (step * 5) == 0) &&
+          entry.isRangeData &&
+          entry.dataPointCount > 1 &&
+          !isHighDensity) {
         _drawRangeEndpoints(canvas, x, entry, animatedRadius * 0.7);
       }
     }
 
     // Always draw the selected point (if any)
     if (selectedData != null && !selectedData!.isEmpty) {
-      final index = data.indexOf(selectedData!);
-      if (index >= 0) {
-        final x = _getXPosition(index);
-        final y = _getYPosition(selectedData!.avgValue);
+      _drawSelectedPoint(canvas);
+    }
+  }
 
-        // Skip if position is outside bounds or NaN
-        if (x >= chartArea.left &&
-            x <= chartArea.right &&
-            y >= chartArea.top &&
-            y <= chartArea.bottom &&
-            !y.isNaN) {
-          // Draw white outline with glow
-          _pointPaint
-            ..color = Colors.white
-            ..style = PaintingStyle.fill
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+// Helper method to calculate adaptive step based on data density
+  int _calculateAdaptiveStep(int dataLength) {
+    if (dataLength <= 20) return 1;
+    if (dataLength <= 50) return 2;
+    if (dataLength <= 100) return 3;
+    if (dataLength <= 200) return 5;
+    if (dataLength <= 500) return 10;
+    return (dataLength / 50).round(); // For very large datasets
+  }
 
-          canvas.drawCircle(
-              Offset(x, y), style.selectedPointRadius + 2, _pointPaint);
-          _pointPaint.maskFilter = null;
+// Extracted method to draw the selected point
+  void _drawSelectedPoint(Canvas canvas) {
+    final index = data.indexOf(selectedData!);
+    if (index < 0) return;
 
-          // Draw colored center
-          _pointPaint
-            ..color = style.selectedColor
-            ..style = PaintingStyle.fill;
+    final x = _getXPosition(index);
+    final y = _getYPosition(selectedData!.avgValue);
 
-          canvas.drawCircle(
-              Offset(x, y), style.selectedPointRadius, _pointPaint);
+    // Skip if position is outside bounds or NaN
+    if (x < chartArea.left ||
+        x > chartArea.right ||
+        y < chartArea.top ||
+        y > chartArea.bottom ||
+        y.isNaN) return;
 
-          // Draw range endpoints
-          if (selectedData!.isRangeData && selectedData!.dataPointCount > 1) {
-            _drawRangeEndpoints(
-                canvas, x, selectedData!, style.selectedPointRadius * 0.7);
-          }
-        }
-      }
+    // Draw white outline with glow
+    _pointPaint
+      ..color = Colors.white
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+      ..isAntiAlias = true; // Always use anti-aliasing for selected point
+
+    canvas.drawCircle(Offset(x, y), style.selectedPointRadius + 2, _pointPaint);
+    _pointPaint.maskFilter = null;
+
+    // Draw colored center
+    _pointPaint
+      ..color = style.selectedColor
+      ..style = PaintingStyle.fill;
+
+    canvas.drawCircle(Offset(x, y), style.selectedPointRadius, _pointPaint);
+
+    // Draw range endpoints
+    if (selectedData!.isRangeData && selectedData!.dataPointCount > 1) {
+      _drawRangeEndpoints(
+          canvas, x, selectedData!, style.selectedPointRadius * 0.7);
     }
   }
 

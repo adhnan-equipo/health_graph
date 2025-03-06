@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:health_graph/heart_rate/utils/collection_utils.dart';
 
 import '../models/date_range_type.dart';
 import 'models/heart_rate_chart_config.dart';
@@ -159,8 +160,8 @@ class _HeartRateChartState extends State<HeartRateChart>
 
     bool needsUpdate = false;
 
-    // Check if data has changed
-    if (!_listEquals(widget.data, oldWidget.data)) {
+    // Check if data has changed using efficient comparison
+    if (!CollectionUtils.listEquals(widget.data, oldWidget.data)) {
       needsUpdate = true;
     }
 
@@ -182,6 +183,26 @@ class _HeartRateChartState extends State<HeartRateChart>
     if (needsUpdate) {
       _processData();
     }
+  }
+
+  Duration _calculateAnimationDuration() {
+    final dataLength = widget.data.length;
+
+    // Much faster animation for large datasets
+    if (dataLength > 100) return const Duration(milliseconds: 300);
+
+    // Medium speed for medium datasets
+    if (dataLength > 50) return const Duration(milliseconds: 400);
+
+    // Adaptive calculation for smaller datasets
+    const baseMs = 300;
+    const maxMs = 600; // Reduced from 800ms
+
+    if (dataLength <= 20) return const Duration(milliseconds: baseMs);
+
+    final duration =
+        baseMs + ((dataLength - 20) * 1); // Reduced multiplier from 2 to 1
+    return Duration(milliseconds: duration.clamp(baseMs, maxMs));
   }
 
   bool _listEquals<T>(List<T> a, List<T> b) {
@@ -295,33 +316,24 @@ class _HeartRateChartState extends State<HeartRateChart>
     _animationController.forward();
   }
 
-  Duration _calculateAnimationDuration() {
-    final dataLength = widget.data.length;
-    const baseMs = 300;
-    const maxMs = 800;
-
-    if (dataLength <= 20) return const Duration(milliseconds: baseMs);
-
-    final duration = baseMs + ((dataLength - 20) * 2);
-    return Duration(milliseconds: duration.clamp(baseMs, maxMs));
-  }
-
   void _handleTapDown(TapDownDetails details) {
     if (_chartArea == null || _isDataEffectivelyEmpty()) return;
 
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     final localPosition = renderBox.globalToLocal(details.globalPosition);
 
     // Check if tap is within the chart area
     if (!_isPointInChartArea(localPosition)) return;
 
-    // Find the nearest data point
+    // Find the nearest data point, accounting for pixel ratio in hit testing
     final nearestPoint = HeartRateChartCalculations.findNearestDataPoint(
       localPosition,
       _chartArea!,
       _processedData,
       _minValue!,
       _maxValue!,
+      hitTestThreshold: 30.0 * devicePixelRatio, // Scale by pixel ratio
     );
 
     if (nearestPoint != null && !nearestPoint.isEmpty) {
