@@ -3,9 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/o2_saturation_range.dart';
 import '../styles/o2_saturation_chart_style.dart';
 
-// lib/o2_saturation/painters/o2_reference_range_drawer.dart
-
-// O2ReferenceRangeDrawer
 class O2ReferenceRangeDrawer {
   final TextPainter _textPainter = TextPainter(
     textDirection: TextDirection.ltr,
@@ -31,17 +28,14 @@ class O2ReferenceRangeDrawer {
       maxValue,
     );
 
-    rangePaint.color =
-        style.normalRangeColor.withValues(alpha: 0.1 * animationValue);
+    rangePaint.color = style.normalRangeColor.withOpacity(0.1 * animationValue);
     _drawAnimatedRange(canvas, normalRangeRect, rangePaint, animationValue);
     _drawRangeLabel(
       canvas,
       normalRangeRect,
-      'Normal (95-100%)',
-      TextStyle(
-        color: style.normalRangeColor.withValues(alpha: 0.7 * animationValue),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
+      style.normalRangeLabel,
+      style.effectiveRangeTextStyle.copyWith(
+        color: style.normalRangeColor.withOpacity(0.7 * animationValue),
       ),
     );
 
@@ -53,17 +47,14 @@ class O2ReferenceRangeDrawer {
       minValue,
       maxValue,
     );
-    rangePaint.color =
-        style.mildRangeColor.withValues(alpha: 0.1 * animationValue);
+    rangePaint.color = style.mildRangeColor.withOpacity(0.1 * animationValue);
     _drawAnimatedRange(canvas, mildRangeRect, rangePaint, animationValue);
     _drawRangeLabel(
       canvas,
       mildRangeRect,
-      'Mild (90-94%)',
-      TextStyle(
-        color: style.mildRangeColor.withValues(alpha: 0.7 * animationValue),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
+      style.mildRangeLabel,
+      style.effectiveRangeTextStyle.copyWith(
+        color: style.mildRangeColor.withOpacity(0.7 * animationValue),
       ),
     );
 
@@ -76,16 +67,14 @@ class O2ReferenceRangeDrawer {
       maxValue,
     );
     rangePaint.color =
-        style.moderateRangeColor.withValues(alpha: 0.1 * animationValue);
+        style.moderateRangeColor.withOpacity(0.1 * animationValue);
     _drawAnimatedRange(canvas, moderateRangeRect, rangePaint, animationValue);
     _drawRangeLabel(
       canvas,
       moderateRangeRect,
-      'Moderate (85-89%)',
-      TextStyle(
-        color: style.moderateRangeColor.withValues(alpha: 0.7 * animationValue),
-        fontSize: 10,
-        fontWeight: FontWeight.w500,
+      style.moderateRangeLabel,
+      style.effectiveRangeTextStyle.copyWith(
+        color: style.moderateRangeColor.withOpacity(0.7 * animationValue),
       ),
     );
 
@@ -99,16 +88,36 @@ class O2ReferenceRangeDrawer {
         maxValue,
       );
       rangePaint.color =
-          style.severeRangeColor.withValues(alpha: 0.1 * animationValue);
+          style.severeRangeColor.withOpacity(0.1 * animationValue);
       _drawAnimatedRange(canvas, severeRangeRect, rangePaint, animationValue);
       _drawRangeLabel(
         canvas,
         severeRangeRect,
-        'Severe (<85%)',
-        TextStyle(
-          color: style.severeRangeColor.withValues(alpha: 0.7 * animationValue),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
+        style.severeRangeLabel,
+        style.effectiveRangeTextStyle.copyWith(
+          color: style.severeRangeColor.withOpacity(0.7 * animationValue),
+        ),
+      );
+    }
+
+    // Draw critical range (<80%) if needed
+    if (minValue < O2SaturationRange.severeMin) {
+      final criticalRangeRect = _calculateRangeRect(
+        chartArea,
+        40, // Lower bound display limit
+        O2SaturationRange.severeMin,
+        minValue,
+        maxValue,
+      );
+      rangePaint.color =
+          style.criticalRangeColor.withOpacity(0.1 * animationValue);
+      _drawAnimatedRange(canvas, criticalRangeRect, rangePaint, animationValue);
+      _drawRangeLabel(
+        canvas,
+        criticalRangeRect,
+        style.criticalRangeLabel,
+        style.effectiveRangeTextStyle.copyWith(
+          color: style.criticalRangeColor.withOpacity(0.7 * animationValue),
         ),
       );
     }
@@ -159,7 +168,7 @@ class O2ReferenceRangeDrawer {
 
     canvas.drawRect(
       labelBackground,
-      Paint()..color = Colors.white.withValues(alpha: 0.7),
+      Paint()..color = Colors.white.withOpacity(0.7),
     );
 
     _textPainter.paint(

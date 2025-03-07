@@ -32,6 +32,7 @@ class _O2SaturationTooltipState extends State<O2SaturationTooltip>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
 
   String _formatTimeRange() {
     final startDate = widget.data.startDate;
@@ -64,117 +65,41 @@ class _O2SaturationTooltipState extends State<O2SaturationTooltip>
     }
   }
 
-  Widget _buildMeasurementsList(BuildContext context) {
-    final measurements = widget.data.originalMeasurements;
-    if (measurements.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(height: 16),
-        Text(
-          'Measurements (${measurements.length})',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          constraints: const BoxConstraints(maxHeight: 120),
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                for (var measurement in measurements)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          DateFormat('HH:mm').format(measurement.date),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: widget.style.primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${measurement.o2Value}%',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            if (measurement.pulseRate != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: widget.style.pulseRateColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${measurement.pulseRate} bpm',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSummarySection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Summary',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+          widget.style.summaryLabel,
+          style: widget.style.effectiveStatisticsLabelStyle,
         ),
         const SizedBox(height: 12),
         _buildSummaryRow(
           context,
-          'O2 Saturation',
+          widget.style.o2SaturationLabel,
           widget.data.dataPointCount > 1
-              ? '${widget.data.minValue} - ${widget.data.maxValue}%'
-              : '${widget.data.minValue}%',
+              ? '${widget.data.minValue} - ${widget.data.maxValue}${widget.style.percentLabel}'
+              : '${widget.data.minValue}${widget.style.percentLabel}',
           widget.style.primaryColor,
         ),
         const SizedBox(height: 8),
         if (widget.data.avgPulseRate != null)
           _buildSummaryRow(
             context,
-            'Pulse Rate',
+            widget.style.pulseRateLabel,
             widget.data.dataPointCount > 1 &&
                     widget.data.minPulseRate != null &&
                     widget.data.maxPulseRate != null
-                ? '${widget.data.minPulseRate} - ${widget.data.maxPulseRate} bpm'
-                : '${widget.data.avgPulseRate!.toStringAsFixed(0)} bpm',
+                ? '${widget.data.minPulseRate} - ${widget.data.maxPulseRate} ${widget.style.bpmLabel}'
+                : '${widget.data.avgPulseRate!.toStringAsFixed(0)} ${widget.style.bpmLabel}',
             widget.style.pulseRateColor,
           ),
         const SizedBox(height: 8),
         if (widget.data.dataPointCount > 1)
           _buildSummaryRow(
             context,
-            'Average',
-            '${widget.data.avgValue.toStringAsFixed(1)}%',
+            widget.style.averageLabel,
+            '${widget.data.avgValue.toStringAsFixed(1)}${widget.style.percentLabel}',
             null,
           ),
       ],
@@ -205,15 +130,60 @@ class _O2SaturationTooltipState extends State<O2SaturationTooltip>
             ],
             Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: widget.style.effectiveTooltipTextStyle,
             ),
           ],
         ),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: widget.style.effectiveValueLabelStyle,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatisticsSection(BuildContext context) {
+    if (widget.data.dataPointCount <= 1) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 16),
+        Text(
+          widget.style.statisticsLabel,
+          style: widget.style.effectiveStatisticsLabelStyle,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.style.standardDeviationLabel,
+                  style: widget.style.effectiveTooltipTextStyle,
+                ),
+                Text(
+                  widget.data.stdDev.toStringAsFixed(1),
+                  style: widget.style.effectiveValueLabelStyle,
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.style.readingsLabel,
+                  style: widget.style.effectiveTooltipTextStyle,
+                ),
+                Text(
+                  widget.data.dataPointCount.toString(),
+                  style: widget.style.effectiveValueLabelStyle,
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     );
@@ -224,14 +194,23 @@ class _O2SaturationTooltipState extends State<O2SaturationTooltip>
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 250),
     );
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
         curve: Curves.easeInOut,
       ),
     );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutBack,
+      ),
+    );
+
     _animationController.forward();
   }
 
@@ -249,129 +228,64 @@ class _O2SaturationTooltipState extends State<O2SaturationTooltip>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _fadeAnimation,
+      animation: _animationController,
       builder: (context, child) => Opacity(
         opacity: _fadeAnimation.value,
         child: Transform.scale(
-          scale: 0.95 + (0.05 * _fadeAnimation.value),
+          scale: _scaleAnimation.value,
           child: Card(
             elevation: 8 * _fadeAnimation.value,
             shadowColor: Colors.black26,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: widget.style.tooltipBorderRadius,
             ),
-            child: GestureDetector(
+            child: InkWell(
+              borderRadius: widget.style.tooltipBorderRadius,
               onTap: () async {
                 widget.onTooltipTap?.call(widget.data);
                 await dismiss();
               },
               child: Container(
-                width: 200,
+                width: 280, // Fixed width for better layout consistency
                 constraints: BoxConstraints(
                   maxHeight: widget.screenSize.height * 0.6,
                 ),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _formatTimeRange(),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 16),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: dismiss,
-                            ),
-                          ],
+                        Expanded(
+                          child: Text(
+                            _formatTimeRange(),
+                            style: widget.style.effectiveHeaderStyle
+                                .copyWith(fontSize: 16),
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        _buildSummarySection(context),
-                        if (widget.data.dataPointCount > 1)
-                          _buildMeasurementsList(context),
-                        if (widget.data.dataPointCount > 1) ...[
-                          const Divider(height: 16),
-                          Text(
-                            'Statistics',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: dismiss,
+                          child: Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.6),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Standard Deviation',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Colors.grey[600],
-                                        ),
-                                  ),
-                                  Text(
-                                    widget.data.stdDev.toStringAsFixed(1),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Readings',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: Colors.grey[600],
-                                        ),
-                                  ),
-                                  Text(
-                                    widget.data.dataPointCount.toString(),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    _buildSummarySection(context),
+                    _buildStatisticsSection(context),
+                  ],
                 ),
               ),
             ),

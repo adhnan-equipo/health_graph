@@ -7,8 +7,8 @@ import '../styles/o2_saturation_chart_style.dart';
 import 'chart_background_drawer.dart';
 import 'chart_grid_drawer.dart';
 import 'chart_label_drawer.dart';
-import 'chart_reference_range_drawer.dart';
 import 'o2_data_point_drawer.dart';
+import 'o2_reference_range_drawer.dart';
 
 class O2SaturationChartPainter extends CustomPainter {
   final List<ProcessedO2SaturationData> data;
@@ -82,7 +82,7 @@ class O2SaturationChartPainter extends CustomPainter {
       canvas,
       chartArea,
       yAxisValues,
-      style.gridLabelStyle ?? style.defaultGridLabelStyle,
+      style.effectiveGridLabelStyle,
       animation.value,
     );
 
@@ -114,26 +114,25 @@ class O2SaturationChartPainter extends CustomPainter {
   }
 
   void _drawEmptyState(Canvas canvas, Size size) {
+    // Simplified empty state drawing without diagonal lines
     final paint = Paint()
       ..color = style.gridLineColor.withValues(alpha: 0.1 * animation.value)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
-    // Draw animated grid pattern
+    // Draw a simple grid instead of diagonal pattern
     const spacing = 20.0;
     for (var x = 0.0; x < size.width; x += spacing) {
-      final progress = (x / size.width * animation.value).clamp(0.0, 1.0);
       canvas.drawLine(
         Offset(x, 0),
-        Offset(x, size.height * progress),
+        Offset(x, size.height),
         paint,
       );
     }
     for (var y = 0.0; y < size.height; y += spacing) {
-      final progress = (y / size.height * animation.value).clamp(0.0, 1.0);
       canvas.drawLine(
         Offset(0, y),
-        Offset(size.width * progress, y),
+        Offset(size.width, y),
         paint,
       );
     }
@@ -149,5 +148,3 @@ class O2SaturationChartPainter extends CustomPainter {
         selectedData != oldDelegate.selectedData;
   }
 }
-
-// O2DataPointDrawer

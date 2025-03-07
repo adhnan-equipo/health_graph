@@ -1,10 +1,11 @@
-// lib/o2_saturation/widgets/o2_saturation_graph.dart
+// lib/o2_saturation/o2_saturation_graph.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/date_range_type.dart';
 import '../../utils/chart_view_config.dart';
 import '../../utils/empty_state_overlay.dart';
+import '../../utils/tooltip_position.dart';
 import 'models/o2_saturation_data.dart';
 import 'models/processed_o2_saturation_data.dart';
 import 'painters/o2_saturation_chart_painter.dart';
@@ -265,21 +266,24 @@ class _O2SaturationChartContentState extends State<O2SaturationChartContent> {
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
-    final screenSize = MediaQuery.of(context).size;
     final tooltipSize = Size(280, _calculateTooltipHeight(data));
+    final safeArea = MediaQuery.of(context).padding;
+    final screenSize = MediaQuery.of(context).size;
 
     final globalPosition = renderBox.localToGlobal(position);
-    final tooltipPosition = _calculateTooltipPosition(
-      globalPosition,
-      tooltipSize,
-      screenSize,
-      MediaQuery.of(context).padding,
+
+    // Use TooltipPosition to calculate optimal position
+    final tooltipPosition = TooltipPosition.calculate(
+      tapPosition: globalPosition,
+      tooltipSize: tooltipSize,
+      screenSize: screenSize,
+      safeArea: safeArea,
     );
 
     _tooltipOverlay = OverlayEntry(
       builder: (context) => Positioned(
-        left: tooltipPosition.dx,
-        top: tooltipPosition.dy,
+        left: tooltipPosition.left,
+        top: tooltipPosition.top,
         child: O2SaturationTooltip(
           data: data,
           viewType: widget.config.viewType,
@@ -295,40 +299,25 @@ class _O2SaturationChartContentState extends State<O2SaturationChartContent> {
   }
 
   double _calculateTooltipHeight(ProcessedO2SaturationData data) {
-    const baseHeight = 120.0;
-    const measurementHeight = 24.0;
-    final measurementsCount = data.originalMeasurements.length;
+    // Base height includes header, summary, and padding
+    const baseHeight = 160.0;
+    const measurementRowHeight = 24.0;
+    const statisticsHeight = 80.0;
 
-    return baseHeight + (measurementHeight * measurementsCount.clamp(0, 5));
-  }
+    double height = baseHeight;
 
-  Offset _calculateTooltipPosition(
-    Offset tapPosition,
-    Size tooltipSize,
-    Size screenSize,
-    EdgeInsets padding,
-  ) {
-    double x = tapPosition.dx - (tooltipSize.width / 2);
-    double y = tapPosition.dy - tooltipSize.height - 10;
+    // Add statistics section height if we have multiple measurements
+    if (data.dataPointCount > 1) {
+      height += statisticsHeight;
 
-    // Ensure tooltip stays within horizontal bounds
-    x = x.clamp(
-      padding.left,
-      screenSize.width - tooltipSize.width - padding.right,
-    );
-
-    // If tooltip would go above screen, show it below the tap point
-    if (y < padding.top) {
-      y = tapPosition.dy + 10;
+      // Add space for measurements, capped at 5 items
+      final visibleMeasurements = data.originalMeasurements.length.clamp(0, 5);
+      if (visibleMeasurements > 0) {
+        height += measurementRowHeight * visibleMeasurements;
+      }
     }
 
-    // Ensure tooltip stays within vertical bounds
-    y = y.clamp(
-      padding.top,
-      screenSize.height - tooltipSize.height - padding.bottom,
-    );
-
-    return Offset(x, y);
+    return height;
   }
 
   void _hideTooltip() {
@@ -424,9 +413,9 @@ class _O2SaturationChartContentState extends State<O2SaturationChartContent> {
             ),
           ),
           // Draw empty state overlay with message
-          const Center(
+          Center(
             child: EmptyStateOverlay(
-              message: 'No O2 saturation data available',
+              message: widget.style.noDataLabel,
               icon: Icons.monitor_heart_outlined,
             ),
           ),

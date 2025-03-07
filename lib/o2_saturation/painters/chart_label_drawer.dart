@@ -1,4 +1,4 @@
-// O2ChartLabelDrawer
+// lib/o2_saturation/painters/chart_label_drawer.dart
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -31,7 +31,7 @@ class O2ChartLabelDrawer {
         ..text = TextSpan(
           text: '$value%', // Add % sign for O2 saturation
           style: textStyle.copyWith(
-            color: textStyle.color?.withValues(alpha: animationValue),
+            color: textStyle.color?.withOpacity(animationValue),
           ),
         )
         ..layout();
@@ -58,10 +58,11 @@ class O2ChartLabelDrawer {
     if (data.isEmpty) return;
 
     final labelStep = _calculateLabelStep(data.length, viewType);
-    final textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
+    final textStyle = style.effectiveDateLabelStyle.copyWith(
+      color: style.effectiveDateLabelStyle.color?.withOpacity(animationValue),
     );
+
+    _textPainter.textAlign = TextAlign.center;
 
     for (var i = 0; i < data.length; i++) {
       if (i % labelStep != 0) continue;
@@ -69,25 +70,18 @@ class O2ChartLabelDrawer {
       final x = _calculateXPosition(i, data.length, chartArea);
       final label = DateFormatter.format(data[i].startDate, viewType);
 
-      textPainter
+      _textPainter
         ..text = TextSpan(
           text: label,
-          style: style.dateLabelStyle?.copyWith(
-                color: style.dateLabelStyle?.color
-                    ?.withValues(alpha: animationValue),
-              ) ??
-              TextStyle(
-                color: Colors.grey[600]?.withValues(alpha: animationValue),
-                fontSize: 12,
-              ),
+          style: textStyle,
         )
         ..layout();
 
       // Position labels with proper spacing
-      textPainter.paint(
+      _textPainter.paint(
         canvas,
         Offset(
-          x - (textPainter.width / 2),
+          x - (_textPainter.width / 2),
           chartArea.bottom + 8, // Increased spacing from chart area
         ),
       );

@@ -36,7 +36,7 @@ class O2DataPointDrawer {
       _buildPaths(chartArea, data, minValue, maxValue);
     }
 
-    // Draw trend lines with gradient
+    // Draw trend lines
     _drawTrendLines(
       canvas,
       chartArea,
@@ -83,12 +83,6 @@ class O2DataPointDrawer {
 
         final animationValue =
             _calculateAnimationValue(i, data.length, animation);
-        final isSelected = entry == selectedData;
-
-        // Draw selection highlight if this point is selected
-        if (isSelected) {
-          _drawSelectionHighlight(canvas, x, chartArea, style, animationValue);
-        }
 
         // Draw based on single or multiple readings
         if (entry.dataPointCount == 1) {
@@ -171,65 +165,20 @@ class O2DataPointDrawer {
   ) {
     // Draw O2 trend line
     if (_o2Path != null) {
+      // Draw flat fill first (no diagonal effect)
+      final fillRect = Rect.fromLTRB(
+          chartArea.left, chartArea.top, chartArea.right, chartArea.bottom);
+      canvas.drawRect(
+          fillRect,
+          Paint()
+            ..color = style.primaryColor.withOpacity(0.03 * animation.value));
+
+      // Then draw just the line
       _linePaint
-        ..color = style.primaryColor.withValues(alpha: 0.5 * animation.value)
+        ..color = style.primaryColor.withOpacity(0.5 * animation.value)
         ..strokeWidth = style.lineThickness;
       canvas.drawPath(_o2Path!, _linePaint);
-
-      // Area fill under O2 line
-      if (animation.value > 0.5) {
-        final fillPath = Path.from(_o2Path!);
-        fillPath.lineTo(chartArea.right, chartArea.bottom);
-        fillPath.lineTo(chartArea.left, chartArea.bottom);
-        fillPath.close();
-
-        _fillPaint
-          ..color = style.primaryColor.withValues(alpha: 0.1 * animation.value)
-          ..style = PaintingStyle.fill;
-        canvas.drawPath(fillPath, _fillPaint);
-      }
     }
-
-    // Draw pulse trend line
-    if (_pulsePath != null) {
-      _linePaint
-        ..color = style.pulseRateColor.withValues(alpha: 0.5 * animation.value)
-        ..strokeWidth = style.lineThickness;
-      canvas.drawPath(_pulsePath!, _linePaint);
-
-      // Area fill under pulse line
-      if (animation.value > 0.5) {
-        final fillPath = Path.from(_pulsePath!);
-        fillPath.lineTo(chartArea.right, chartArea.bottom);
-        fillPath.lineTo(chartArea.left, chartArea.bottom);
-        fillPath.close();
-
-        _fillPaint
-          ..color =
-              style.pulseRateColor.withValues(alpha: 0.1 * animation.value)
-          ..style = PaintingStyle.fill;
-        canvas.drawPath(fillPath, _fillPaint);
-      }
-    }
-  }
-
-  void _drawSelectionHighlight(
-    Canvas canvas,
-    double x,
-    Rect chartArea,
-    O2SaturationChartStyle style,
-    double animationValue,
-  ) {
-    final paint = Paint()
-      ..color =
-          style.selectedHighlightColor.withValues(alpha: 0.5 * animationValue)
-      ..strokeWidth = 2;
-
-    canvas.drawLine(
-      Offset(x, chartArea.top),
-      Offset(x, chartArea.bottom),
-      paint,
-    );
   }
 
   void _drawSinglePoint(
@@ -250,7 +199,7 @@ class O2DataPointDrawer {
 
       // Draw connecting line
       _linePaint
-        ..color = Colors.grey.withValues(alpha: 0.3 * animationValue)
+        ..color = Colors.grey.withOpacity(0.3 * animationValue)
         ..strokeWidth = 1.0;
       canvas.drawLine(o2Point, pulsePoint, _linePaint);
     }
@@ -271,7 +220,7 @@ class O2DataPointDrawer {
   ) {
     // Draw O2 range line
     _linePaint
-      ..color = style.primaryColor.withValues(alpha: 0.7 * animationValue)
+      ..color = style.primaryColor.withOpacity(0.7 * animationValue)
       ..strokeWidth = 2.0;
     canvas.drawLine(o2MinPoint, o2MaxPoint, _linePaint);
 
@@ -281,7 +230,7 @@ class O2DataPointDrawer {
 
     // Draw min/max end caps for O2
     _fillPaint
-      ..color = style.primaryColor.withValues(alpha: 0.7 * animationValue)
+      ..color = style.primaryColor.withOpacity(0.7 * animationValue)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(o2MinPoint, style.pointRadius * 0.7, _fillPaint);
     canvas.drawCircle(o2MaxPoint, style.pointRadius * 0.7, _fillPaint);
@@ -290,7 +239,7 @@ class O2DataPointDrawer {
     if (pulsePoint != null && pulseMinPoint != null && pulseMaxPoint != null) {
       // Draw pulse range line
       _linePaint
-        ..color = style.pulseRateColor.withValues(alpha: 0.7 * animationValue)
+        ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
         ..strokeWidth = 2.0;
       canvas.drawLine(pulseMinPoint, pulseMaxPoint, _linePaint);
 
@@ -300,14 +249,14 @@ class O2DataPointDrawer {
 
       // Draw min/max end caps for pulse
       _fillPaint
-        ..color = style.pulseRateColor.withValues(alpha: 0.7 * animationValue)
+        ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(pulseMinPoint, style.pointRadius * 0.7, _fillPaint);
       canvas.drawCircle(pulseMaxPoint, style.pointRadius * 0.7, _fillPaint);
 
       // Draw connecting line between O2 and pulse
       _linePaint
-        ..color = Colors.grey.withValues(alpha: 0.3 * animationValue)
+        ..color = Colors.grey.withOpacity(0.3 * animationValue)
         ..strokeWidth = 1.0;
       canvas.drawLine(o2Point, pulsePoint, _linePaint);
     }
@@ -322,28 +271,28 @@ class O2DataPointDrawer {
   ) {
     final animatedRadius = radius * animationValue;
 
-    // Outer glow effect
+    // Outer circle with slight glow
     _fillPaint
-      ..color = color.withValues(alpha: 0.3 * animationValue)
+      ..color = color.withOpacity(0.3 * animationValue)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
     canvas.drawCircle(position, animatedRadius * 1.5, _fillPaint);
     _fillPaint.maskFilter = null;
 
     // Main circle
     _fillPaint
-      ..color = color.withValues(alpha: 0.9 * animationValue)
+      ..color = color.withOpacity(0.9 * animationValue)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(position, animatedRadius, _fillPaint);
 
     // Highlight effect (3D look)
-    _fillPaint..color = Colors.white.withValues(alpha: 0.7 * animationValue);
+    _fillPaint..color = Colors.white.withOpacity(0.7 * animationValue);
     final highlightPos = Offset(
         position.dx - animatedRadius * 0.3, position.dy - animatedRadius * 0.3);
     canvas.drawCircle(highlightPos, animatedRadius * 0.4, _fillPaint);
 
     // Outline
     _linePaint
-      ..color = Colors.white.withValues(alpha: 0.7 * animationValue)
+      ..color = Colors.white.withOpacity(0.7 * animationValue)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
     canvas.drawCircle(position, animatedRadius, _linePaint);
@@ -359,11 +308,7 @@ class O2DataPointDrawer {
     final textPainter = TextPainter(
       text: TextSpan(
         text: count.toString(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
+        style: style.effectiveCountLabelStyle,
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -376,7 +321,7 @@ class O2DataPointDrawer {
 
     // Draw badge background
     _fillPaint
-      ..color = style.primaryColor.withValues(alpha: animationValue)
+      ..color = style.primaryColor.withOpacity(animationValue)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(badgeCenter, badgeRadius, _fillPaint);
 
