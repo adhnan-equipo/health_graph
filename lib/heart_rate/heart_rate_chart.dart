@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +9,7 @@ import 'models/heart_rate_chart_config.dart';
 import 'models/heart_rate_data.dart';
 import 'models/processed_heart_rate_data.dart';
 import 'painters/heart_rate_chart_painter.dart';
+import 'services/heart_rate_data_processor.dart';
 import 'styles/heart_rate_chart_style.dart';
 import 'utils/heart_rate_calculations.dart';
 import 'widgets/heart_rate_tooltip.dart';
@@ -39,6 +39,9 @@ class HeartRateChart extends StatefulWidget {
   /// Callback when configuration is changed
   final Function(HeartRateChartConfig)? onConfigChanged;
 
+  /// Flag to indicate if data is still loading from source
+  final bool isLoading;
+
   const HeartRateChart({
     Key? key,
     required this.data,
@@ -49,6 +52,7 @@ class HeartRateChart extends StatefulWidget {
     this.onTooltipTap,
     this.onViewTypeChanged,
     this.onConfigChanged,
+    this.isLoading = false,
   }) : super(key: key);
 
   @override
@@ -70,7 +74,7 @@ class _HeartRateChartState extends State<HeartRateChart>
   double? _maxValue;
   OverlayEntry? _tooltipOverlay;
   bool _isInitialized = false;
-  bool _isProcessing = false;
+  bool _isProcessingData = false;
 
   // Local state for selected data point to prevent full rebuilds
   ProcessedHeartRateData? _selectedData;
@@ -96,7 +100,7 @@ class _HeartRateChartState extends State<HeartRateChart>
 
   void _initializeChart() {
     setState(() {
-      _isProcessing = true;
+      _isProcessingData = true;
     });
 
     // Process data first
@@ -104,7 +108,7 @@ class _HeartRateChartState extends State<HeartRateChart>
       // Then initialize dimensions
       _initializeChartDimensions();
       setState(() {
-        _isProcessing = false;
+        _isProcessingData = false;
         _isInitialized = true;
       });
     });
@@ -115,8 +119,11 @@ class _HeartRateChartState extends State<HeartRateChart>
     super.didUpdateWidget(oldWidget);
 
     // Check if data or config has changed
-    bool needsDataUpdate = !_listEquals(widget.data, oldWidget.data);
+    bool needsDataUpdate = widget.data != oldWidget.data;
     bool needsConfigUpdate = widget.config != oldWidget.config;
+
+    // Check if loading state changed
+    bool loadingStateChanged = widget.isLoading != oldWidget.isLoading;
 
     if (needsDataUpdate) {
       _updateData(widget.data);
@@ -126,25 +133,10 @@ class _HeartRateChartState extends State<HeartRateChart>
       _updateConfig(widget.config, oldWidget.config);
     }
 
-    if (needsDataUpdate || needsConfigUpdate) {
-      // Re-render chart with new data
+    if (needsDataUpdate || needsConfigUpdate || loadingStateChanged) {
+      // Re-render chart with new data or config
       _scheduleUpdateIfNeeded();
     }
-  }
-
-  bool _listEquals<T>(List<T> a, List<T> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-
-    // Quick check for performance
-    if (a.isEmpty && b.isEmpty) return true;
-    if (a.isNotEmpty && b.isNotEmpty) {
-      if (a.first != b.first || a.last != b.last) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   void _updateData(List<HeartRateData> newData) {
@@ -221,9 +213,19 @@ class _HeartRateChartState extends State<HeartRateChart>
   }
 
   Widget _buildChartContent() {
-    // Check if chart is still initializing
-    if (!_isInitialized || _isProcessing) {
-      return const Center(child: CircularProgressIndicator());
+    // Show loading indicator only if data is being fetched
+    if (widget.isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(widget.style.primaryColor),
+        ),
+      );
+    }
+
+    // Show temporary loading during internal processing
+    if (!_isInitialized || _isProcessingData) {
+      return const SizedBox
+          .shrink(); // Use empty container instead of loading indicator for smoother transition
     }
 
     // Check for valid chart dimensions
@@ -231,11 +233,12 @@ class _HeartRateChartState extends State<HeartRateChart>
         _yAxisValues == null ||
         _minValue == null ||
         _maxValue == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const SizedBox
+          .shrink(); // Use empty container for smoother transition
     }
 
-    // Check for empty data
-    if (_isDataEffectivelyEmpty()) {
+    // Check for empty data - only show empty state if we're sure there's no data
+    if (_isDataEffectivelyEmpty() && !widget.isLoading && widget.data.isEmpty) {
       return _buildEmptyState();
     }
 
@@ -243,6 +246,9 @@ class _HeartRateChartState extends State<HeartRateChart>
     return GestureDetector(
       onTapDown: _handleTapDown,
       child: CustomPaint(
+        // Use key to optimize rebuilds
+        key: ValueKey(
+            'heart_rate_chart_${widget.data.hashCode}_${widget.config.hashCode}'),
         // Use RepaintBoundary to prevent unnecessary repainting
         isComplex: true,
         willChange: false,
@@ -420,7 +426,7 @@ class _HeartRateChartState extends State<HeartRateChart>
     if (renderBox == null) return;
 
     final screenSize = MediaQuery.of(context).size;
-    final tooltipSize = const Size(320, 200); // Approximate size
+    final tooltipSize = const Size(240, 200); // Approximate size
 
     final globalPosition = renderBox.localToGlobal(position);
     final tooltipPosition = TooltipPosition.calculate(
@@ -465,17 +471,21 @@ class _HeartRateChartState extends State<HeartRateChart>
 
   Future<void> _processData() async {
     // Process data in a separate task to avoid blocking UI
-    await compute(_processingFunction, widget.data);
-    return;
-  }
+    try {
+      final processedData = HeartRateDataProcessor.processData(
+        widget.data,
+        widget.config.viewType,
+        widget.config.startDate,
+        widget.config.endDate,
+        zoomLevel: widget.config.zoomLevel,
+      );
 
-  // This is a simple placeholder since we can't actually use compute
-  // with the controller in this context - in real implementation
-  // we would extract the processing logic
-  static List<ProcessedHeartRateData> _processingFunction(
-      List<HeartRateData> data) {
-    // In reality, this would use HeartRateDataProcessor.processData
-    return [];
+      _controller.updateProcessedData(processedData);
+    } catch (e) {
+      debugPrint('Error processing heart rate data: $e');
+    }
+
+    return;
   }
 
   @override

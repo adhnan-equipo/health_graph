@@ -212,6 +212,11 @@ class HeartRateChartController extends ChangeNotifier {
   void dispose() {
     super.dispose();
   }
+
+  void updateProcessedData(List<ProcessedHeartRateData> data) {
+    _processedData = data;
+    notifyListeners();
+  }
 }
 
 class HeartRateSummary {
