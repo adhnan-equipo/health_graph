@@ -2,7 +2,6 @@
 import 'dart:math';
 
 import '../models/heart_rate_data.dart';
-import '../models/heart_rate_range.dart';
 
 class ProcessedHeartRateData {
   final DateTime startDate;
@@ -46,12 +45,6 @@ class ProcessedHeartRateData {
       isEmpty: true,
     );
   }
-
-  /// Get the heart rate zone name
-  String get zoneName => HeartRateRange.getZoneName(avgValue);
-
-  /// Get the heart rate zone description
-  String get zoneDescription => HeartRateRange.getZoneDescription(avgValue);
 
   /// Get range width (max - min), ensuring it's never negative
   int get rangeWidth => max(0, maxValue - minValue);

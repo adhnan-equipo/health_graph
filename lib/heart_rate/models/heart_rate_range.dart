@@ -1,4 +1,6 @@
 // lib/heart_rate/models/heart_rate_range.dart
+import 'package:health_graph/heart_rate/styles/heart_rate_chart_style.dart';
+
 class HeartRateRange {
   // Heart rate zones (bpm)
   static const lowMin = 0;
@@ -18,24 +20,19 @@ class HeartRateRange {
     return 220 - age;
   }
 
-  // Get zone name from value
-  static String getZoneName(double value) {
-    if (value < lowMax) return 'Low';
-    if (value < normalMax) return 'Normal';
-    if (value < elevatedMax) return 'Elevated';
-    return 'High';
-  }
-
   // Get zone description
-  static String getZoneDescription(double value) {
+  static String getZoneDescription(
+    double value,
+    HeartRateChartStyle style,
+  ) {
     if (value < lowMax) {
-      return 'Low Heart Rate (Bradycardia)';
+      return style.lowZoneLabel;
     } else if (value < normalMax) {
-      return 'Normal Heart Rate';
+      return style.normalZoneLabel;
     } else if (value < elevatedMax) {
-      return 'Elevated Heart Rate (Mild Tachycardia)';
+      return style.elevatedZoneLabel;
     } else {
-      return 'High Heart Rate (Tachycardia)';
+      return style.highZoneLabel;
     }
   }
 }

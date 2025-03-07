@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/heart_rate_range.dart';
+import '../models/heart_rate_zone.dart';
 
 class HeartRateChartStyle {
   // Main colors
@@ -26,24 +27,43 @@ class HeartRateChartStyle {
   final double selectedPointRadius;
 
   // Text styles
-  final TextStyle labelStyle;
-  final TextStyle headerStyle;
-  final TextStyle subHeaderStyle;
-  final TextStyle tooltipTextStyle;
+  final TextStyle? labelStyle;
+  final TextStyle? headerStyle;
+  final TextStyle? subHeaderStyle;
+  final TextStyle? tooltipTextStyle;
+  final TextStyle? gridLabelStyle;
+  final TextStyle? emptyStateStyle;
+  final TextStyle? zoneTextStyle;
+  final TextStyle? valueLabelStyle;
+  final TextStyle? averageLabelStyle;
+  final TextStyle? dateLabelStyle;
 
   // Tooltip design
   final BorderRadius tooltipBorderRadius;
   final List<BoxShadow> tooltipShadow;
 
   // Labels
-  final String systolicLabel;
-  final String diastolicLabel;
+  final String heartRateLabel;
+  final String restingRateLabel;
   final String measurementsLabel;
   final String summaryLabel;
   final String averageLabel;
   final String rangeLabel;
   final String hrvLabel;
-  final String restingLabel;
+  final String statisticsLabel;
+  final String todayLabel;
+  final String yesterdayLabel;
+  final String thisWeekLabel;
+  final String lastWeekLabel;
+  final String thisMonthLabel;
+  final String lastMonthLabel;
+  final String noDataLabel;
+  final String lowZoneLabel;
+  final String normalZoneLabel;
+  final String elevatedZoneLabel;
+  final String highZoneLabel;
+  final String bpmLabel;
+  final String msLabel; // For HRV (milliseconds)
 
   const HeartRateChartStyle({
     this.primaryColor = const Color(0xFFE53E3E),
@@ -59,25 +79,16 @@ class HeartRateChartStyle {
     this.lineThickness = 2.5,
     this.pointRadius = 4.0,
     this.selectedPointRadius = 6.0,
-    this.labelStyle = const TextStyle(
-      color: Color(0xFF718096),
-      fontSize: 12,
-      fontWeight: FontWeight.normal,
-    ),
-    this.headerStyle = const TextStyle(
-      fontSize: 18,
-      color: Color(0xFF4A5568),
-      fontWeight: FontWeight.w600,
-    ),
-    this.subHeaderStyle = const TextStyle(
-      fontSize: 14,
-      color: Color(0xFF718096),
-      fontWeight: FontWeight.w500,
-    ),
-    this.tooltipTextStyle = const TextStyle(
-      fontSize: 12,
-      color: Color(0xFF4A5568),
-    ),
+    this.labelStyle,
+    this.headerStyle,
+    this.subHeaderStyle,
+    this.tooltipTextStyle,
+    this.gridLabelStyle,
+    this.emptyStateStyle,
+    this.zoneTextStyle,
+    this.valueLabelStyle,
+    this.averageLabelStyle,
+    this.dateLabelStyle,
     this.tooltipBorderRadius = const BorderRadius.all(Radius.circular(12)),
     this.tooltipShadow = const [
       BoxShadow(
@@ -95,15 +106,113 @@ class HeartRateChartStyle {
         Color(0x05E53E3E),
       ],
     ),
-    this.systolicLabel = 'Heart Rate',
-    this.diastolicLabel = 'Resting Rate',
+    this.heartRateLabel = 'Heart Rate',
+    this.restingRateLabel = 'Resting Rate',
     this.measurementsLabel = 'Measurements',
     this.summaryLabel = 'Summary',
     this.averageLabel = 'Average',
     this.rangeLabel = 'Range',
     this.hrvLabel = 'HRV',
-    this.restingLabel = 'Resting Rate',
+    this.statisticsLabel = 'Statistics',
+    this.todayLabel = 'Today',
+    this.yesterdayLabel = 'Yesterday',
+    this.thisWeekLabel = 'This Week',
+    this.lastWeekLabel = 'Last Week',
+    this.thisMonthLabel = 'This Month',
+    this.lastMonthLabel = 'Last Month',
+    this.noDataLabel = 'No heart rate data available',
+    this.lowZoneLabel = 'Low',
+    this.normalZoneLabel = 'Normal',
+    this.elevatedZoneLabel = 'Elevated',
+    this.highZoneLabel = 'High',
+    this.bpmLabel = 'bpm',
+    this.msLabel = 'ms',
   });
+
+  // Get default text styles with fallbacks
+  TextStyle get defaultLabelStyle => const TextStyle(
+        color: Color(0xFF718096),
+        fontSize: 12,
+        fontWeight: FontWeight.normal,
+      );
+
+  TextStyle get defaultHeaderStyle => const TextStyle(
+        fontSize: 18,
+        color: Color(0xFF4A5568),
+        fontWeight: FontWeight.w600,
+      );
+
+  TextStyle get defaultSubHeaderStyle => const TextStyle(
+        fontSize: 14,
+        color: Color(0xFF718096),
+        fontWeight: FontWeight.w500,
+      );
+
+  TextStyle get defaultTooltipTextStyle => const TextStyle(
+        fontSize: 12,
+        color: Color(0xFF4A5568),
+      );
+
+  TextStyle get defaultGridLabelStyle => const TextStyle(
+        color: Color(0xFF718096),
+        fontSize: 10,
+        fontWeight: FontWeight.normal,
+      );
+
+  TextStyle get defaultEmptyStateStyle => const TextStyle(
+        color: Color(0xFF718096),
+        fontSize: 14,
+        fontWeight: FontWeight.normal,
+      );
+
+  TextStyle get defaultZoneTextStyle => const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      );
+
+  TextStyle get defaultValueLabelStyle => const TextStyle(
+        fontSize: 13,
+        color: Color(0xFF4A5568),
+        fontWeight: FontWeight.bold,
+      );
+
+  TextStyle get defaultAverageLabelStyle => const TextStyle(
+        fontSize: 12,
+        color: Color(0xFF718096),
+      );
+
+  TextStyle get defaultDateLabelStyle => const TextStyle(
+        fontSize: 11,
+        color: Color(0xFF718096),
+      );
+
+  // Getter methods for text styles with fallbacks
+  TextStyle get effectiveLabelStyle => labelStyle ?? defaultLabelStyle;
+
+  TextStyle get effectiveHeaderStyle => headerStyle ?? defaultHeaderStyle;
+
+  TextStyle get effectiveSubHeaderStyle =>
+      subHeaderStyle ?? defaultSubHeaderStyle;
+
+  TextStyle get effectiveTooltipTextStyle =>
+      tooltipTextStyle ?? defaultTooltipTextStyle;
+
+  TextStyle get effectiveGridLabelStyle =>
+      gridLabelStyle ?? defaultGridLabelStyle;
+
+  TextStyle get effectiveEmptyStateStyle =>
+      emptyStateStyle ?? defaultEmptyStateStyle;
+
+  TextStyle get effectiveZoneTextStyle => zoneTextStyle ?? defaultZoneTextStyle;
+
+  TextStyle get effectiveValueLabelStyle =>
+      valueLabelStyle ?? defaultValueLabelStyle;
+
+  TextStyle get effectiveAverageLabelStyle =>
+      averageLabelStyle ?? defaultAverageLabelStyle;
+
+  TextStyle get effectiveDateLabelStyle =>
+      dateLabelStyle ?? defaultDateLabelStyle;
 
   // Get color for a specific heart rate zone
   Color getZoneColor(double value) {
@@ -111,6 +220,28 @@ class HeartRateChartStyle {
     if (value < HeartRateRange.normalMax) return normalZoneColor;
     if (value < HeartRateRange.elevatedMax) return elevatedZoneColor;
     return highZoneColor;
+  }
+
+  // Get zone label for a specific heart rate zone
+  String getZoneLabel(HeartRateZone zone) {
+    switch (zone) {
+      case HeartRateZone.low:
+        return lowZoneLabel;
+      case HeartRateZone.normal:
+        return normalZoneLabel;
+      case HeartRateZone.elevated:
+        return elevatedZoneLabel;
+      case HeartRateZone.high:
+        return highZoneLabel;
+    }
+  }
+
+  // Get zone label based on value
+  String getZoneLabelFromValue(double value) {
+    if (value < HeartRateRange.lowMax) return lowZoneLabel;
+    if (value < HeartRateRange.normalMax) return normalZoneLabel;
+    if (value < HeartRateRange.elevatedMax) return elevatedZoneLabel;
+    return highZoneLabel;
   }
 
   // Create a dark theme style
@@ -126,33 +257,7 @@ class HeartRateChartStyle {
       normalZoneColor: Color(0xFF68D391),
       elevatedZoneColor: Color(0xFFF6AD55),
       highZoneColor: Color(0xFFF56565),
-      labelStyle: TextStyle(
-        color: Color(0xFFE2E8F0),
-        fontSize: 12,
-        fontWeight: FontWeight.normal,
-      ),
-      headerStyle: TextStyle(
-        fontSize: 18,
-        color: Color(0xFFE2E8F0),
-        fontWeight: FontWeight.w600,
-      ),
-      subHeaderStyle: TextStyle(
-        fontSize: 14,
-        color: Color(0xFFE2E8F0),
-        fontWeight: FontWeight.w500,
-      ),
-      tooltipTextStyle: TextStyle(
-        fontSize: 12,
-        color: Color(0xFFE2E8F0),
-      ),
-      areaGradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Color(0x40F56565),
-          Color(0x05F56565),
-        ],
-      ),
+      // Dark theme specific text styles can be added here
     );
   }
 
@@ -176,16 +281,35 @@ class HeartRateChartStyle {
     TextStyle? headerStyle,
     TextStyle? subHeaderStyle,
     TextStyle? tooltipTextStyle,
+    TextStyle? gridLabelStyle,
+    TextStyle? emptyStateStyle,
+    TextStyle? zoneTextStyle,
+    TextStyle? valueLabelStyle,
+    TextStyle? averageLabelStyle,
+    TextStyle? dateLabelStyle,
     BorderRadius? tooltipBorderRadius,
     List<BoxShadow>? tooltipShadow,
-    String? systolicLabel,
-    String? diastolicLabel,
+    String? heartRateLabel,
+    String? restingRateLabel,
     String? measurementsLabel,
     String? summaryLabel,
     String? averageLabel,
     String? rangeLabel,
     String? hrvLabel,
-    String? restingLabel,
+    String? statisticsLabel,
+    String? todayLabel,
+    String? yesterdayLabel,
+    String? thisWeekLabel,
+    String? lastWeekLabel,
+    String? thisMonthLabel,
+    String? lastMonthLabel,
+    String? noDataLabel,
+    String? lowZoneLabel,
+    String? normalZoneLabel,
+    String? elevatedZoneLabel,
+    String? highZoneLabel,
+    String? bpmLabel,
+    String? msLabel,
   }) {
     return HeartRateChartStyle(
       primaryColor: primaryColor ?? this.primaryColor,
@@ -206,16 +330,35 @@ class HeartRateChartStyle {
       headerStyle: headerStyle ?? this.headerStyle,
       subHeaderStyle: subHeaderStyle ?? this.subHeaderStyle,
       tooltipTextStyle: tooltipTextStyle ?? this.tooltipTextStyle,
+      gridLabelStyle: gridLabelStyle ?? this.gridLabelStyle,
+      emptyStateStyle: emptyStateStyle ?? this.emptyStateStyle,
+      zoneTextStyle: zoneTextStyle ?? this.zoneTextStyle,
+      valueLabelStyle: valueLabelStyle ?? this.valueLabelStyle,
+      averageLabelStyle: averageLabelStyle ?? this.averageLabelStyle,
+      dateLabelStyle: dateLabelStyle ?? this.dateLabelStyle,
       tooltipBorderRadius: tooltipBorderRadius ?? this.tooltipBorderRadius,
       tooltipShadow: tooltipShadow ?? this.tooltipShadow,
-      systolicLabel: systolicLabel ?? this.systolicLabel,
-      diastolicLabel: diastolicLabel ?? this.diastolicLabel,
+      heartRateLabel: heartRateLabel ?? this.heartRateLabel,
+      restingRateLabel: restingRateLabel ?? this.restingRateLabel,
       measurementsLabel: measurementsLabel ?? this.measurementsLabel,
       summaryLabel: summaryLabel ?? this.summaryLabel,
       averageLabel: averageLabel ?? this.averageLabel,
       rangeLabel: rangeLabel ?? this.rangeLabel,
       hrvLabel: hrvLabel ?? this.hrvLabel,
-      restingLabel: restingLabel ?? this.restingLabel,
+      statisticsLabel: statisticsLabel ?? this.statisticsLabel,
+      todayLabel: todayLabel ?? this.todayLabel,
+      yesterdayLabel: yesterdayLabel ?? this.yesterdayLabel,
+      thisWeekLabel: thisWeekLabel ?? this.thisWeekLabel,
+      lastWeekLabel: lastWeekLabel ?? this.lastWeekLabel,
+      thisMonthLabel: thisMonthLabel ?? this.thisMonthLabel,
+      lastMonthLabel: lastMonthLabel ?? this.lastMonthLabel,
+      noDataLabel: noDataLabel ?? this.noDataLabel,
+      lowZoneLabel: lowZoneLabel ?? this.lowZoneLabel,
+      normalZoneLabel: normalZoneLabel ?? this.normalZoneLabel,
+      elevatedZoneLabel: elevatedZoneLabel ?? this.elevatedZoneLabel,
+      highZoneLabel: highZoneLabel ?? this.highZoneLabel,
+      bpmLabel: bpmLabel ?? this.bpmLabel,
+      msLabel: msLabel ?? this.msLabel,
     );
   }
 }

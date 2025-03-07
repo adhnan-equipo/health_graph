@@ -115,15 +115,15 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
       children: [
         Text(
           widget.style.summaryLabel,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+          style: widget.style.effectiveSubHeaderStyle.copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 12),
         _buildSummaryRow(
           context,
-          widget.style.systolicLabel,
+          widget.style.heartRateLabel,
           widget.data.isRangeData
               ? '${widget.data.minValue} - ${widget.data.maxValue}'
               : '${widget.data.avgValue.toInt()}',
@@ -133,7 +133,7 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
           const SizedBox(height: 8),
           _buildSummaryRow(
             context,
-            widget.style.restingLabel,
+            widget.style.restingRateLabel,
             '${widget.data.restingRate}',
             widget.style.restingRateColor,
           ),
@@ -144,20 +144,18 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
           children: [
             Text(
               widget.style.averageLabel,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: widget.style.effectiveAverageLabelStyle,
             ),
             RichText(
               text: TextSpan(
                 children: [
                   TextSpan(
                     text: '${widget.data.avgValue.toStringAsFixed(1)} ',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: widget.style.effectiveValueLabelStyle,
                   ),
                   TextSpan(
-                    text: 'bpm',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    text: widget.style.bpmLabel,
+                    style: widget.style.effectiveAverageLabelStyle,
                   ),
                 ],
               ),
@@ -169,9 +167,9 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
           decoration: BoxDecoration(
-            color: zoneColor.withValues(alpha: 0.1),
+            color: zoneColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: zoneColor.withValues(alpha: 0.3)),
+            border: Border.all(color: zoneColor.withOpacity(0.3)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -183,11 +181,10 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
               ),
               const SizedBox(width: 4),
               Text(
-                HeartRateRange.getZoneDescription(widget.data.avgValue),
-                style: TextStyle(
+                HeartRateRange.getZoneDescription(
+                    widget.data.avgValue, widget.style),
+                style: widget.style.effectiveZoneTextStyle.copyWith(
                   color: zoneColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
                 ),
               ),
             ],
@@ -212,64 +209,12 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             '${widget.style.measurementsLabel} (${measurements.length})',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-          ),
-        ),
-        Container(
-          constraints: const BoxConstraints(maxHeight: 120),
-          child: ListView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            itemCount: measurements.length.clamp(0, 5),
-            itemBuilder: (context, index) {
-              final item = measurements[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      DateFormat('h:mm a').format(item.date),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: widget.style.primaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${item.value} bpm',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        if (measurements.length > 5)
-          Center(
-            child: Text(
-              '+ ${measurements.length - 5} more',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+            style: widget.style.effectiveSubHeaderStyle.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
+        ),
       ],
     );
   }
@@ -285,11 +230,11 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
       children: [
         const Divider(height: 24, thickness: 1),
         Text(
-          'Statistics',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+          widget.style.statisticsLabel,
+          style: widget.style.effectiveSubHeaderStyle.copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 12),
         Row(
@@ -299,21 +244,10 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
                 child: _buildStatItem(
                   context,
                   widget.style.rangeLabel,
-                  '${widget.data.maxValue - widget.data.minValue} bpm',
+                  '${widget.data.maxValue - widget.data.minValue} ${widget.style.bpmLabel}',
                   Icons.compare_arrows,
                 ),
               ),
-            if (widget.data.hrv != null && widget.data.hrv! > 0) ...[
-              if (widget.data.isRangeData) const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatItem(
-                  context,
-                  widget.style.hrvLabel,
-                  '${widget.data.hrv!.toStringAsFixed(1)} ms',
-                  Icons.waves,
-                ),
-              ),
-            ],
           ],
         ),
       ],
@@ -343,7 +277,7 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
             const SizedBox(width: 4),
             Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: widget.style.effectiveAverageLabelStyle,
             ),
           ],
         ),
@@ -352,13 +286,11 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
             children: [
               TextSpan(
                 text: '$value ',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: widget.style.effectiveValueLabelStyle,
               ),
               TextSpan(
-                text: 'bpm',
-                style: Theme.of(context).textTheme.bodySmall,
+                text: widget.style.bpmLabel,
+                style: widget.style.effectiveAverageLabelStyle,
               ),
             ],
           ),
@@ -387,18 +319,16 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
             const SizedBox(width: 4),
             Text(
               label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+              style: widget.style.effectiveDateLabelStyle.copyWith(
+                color: Colors.grey[600],
+              ),
             ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: widget.style.effectiveValueLabelStyle,
         ),
       ],
     );
@@ -435,7 +365,7 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
               borderRadius: widget.style.tooltipBorderRadius,
             ),
             child: Container(
-              width: 240,
+              width: 300,
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,7 +377,7 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
                       Expanded(
                         child: Text(
                           _formatTimeRange(),
-                          style: widget.style.subHeaderStyle,
+                          style: widget.style.effectiveSubHeaderStyle,
                         ),
                       ),
                       IconButton(
