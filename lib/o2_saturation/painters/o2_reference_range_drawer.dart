@@ -168,7 +168,7 @@ class O2ReferenceRangeDrawer {
 
     canvas.drawRect(
       labelBackground,
-      Paint()..color = Colors.white.withOpacity(0.7),
+      Paint()..color = Colors.white.withOpacity(0.2),
     );
 
     _textPainter.paint(

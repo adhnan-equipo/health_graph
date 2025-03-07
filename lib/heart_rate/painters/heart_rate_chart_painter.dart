@@ -66,9 +66,9 @@ class HeartRateChartPainter extends CustomPainter {
       _drawBackground(canvas);
 
       // Draw ranges if enabled
-      if (config.showZones) {
-        _drawReferenceRanges(canvas);
-      }
+      // if (config.showZones) {
+      //   _drawReferenceRanges(canvas);
+      // }
 
       // Draw grid if enabled
       if (config.showGrid) {
