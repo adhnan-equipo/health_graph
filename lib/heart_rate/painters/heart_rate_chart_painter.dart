@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/date_range_type.dart';
 import '../../utils/date_formatter.dart';
+import '../models/heart_rate_chart_config.dart';
 import '../models/heart_rate_range.dart';
 import '../models/processed_heart_rate_data.dart';
 import '../styles/heart_rate_chart_style.dart';
@@ -17,9 +18,7 @@ class HeartRateChartPainter extends CustomPainter {
   final List<int> yAxisValues;
   final double minValue;
   final double maxValue;
-  final bool showGrid;
-  final bool showRanges;
-  final DateRangeType viewType;
+  final HeartRateChartConfig config;
   final ProcessedHeartRateData? selectedData;
 
   // Reusable objects for better performance
@@ -33,11 +32,11 @@ class HeartRateChartPainter extends CustomPainter {
 
   // Cache for performance optimization
   String _lastDataHash = '';
-  String _lastAnimationHash = '';
   Path? _heartRatePath;
   Path? _restingRatePath;
   Path? _maxRatePath;
   Path? _minRatePath;
+  Path? _trendLinePath;
 
   HeartRateChartPainter({
     required this.data,
@@ -47,9 +46,7 @@ class HeartRateChartPainter extends CustomPainter {
     required this.yAxisValues,
     required this.minValue,
     required this.maxValue,
-    this.showGrid = true,
-    this.showRanges = true,
-    required this.viewType,
+    required this.config,
     this.selectedData,
   }) : super(repaint: animation);
 
@@ -69,27 +66,39 @@ class HeartRateChartPainter extends CustomPainter {
       _drawBackground(canvas);
 
       // Draw ranges if enabled
-      if (showRanges) {
+      if (config.showZones) {
         _drawReferenceRanges(canvas);
       }
 
       // Draw grid if enabled
-      if (showGrid) {
+      if (config.showGrid) {
         _drawGrid(canvas);
       }
 
       canvas.restore();
 
-      // Draw axis labels
-      _drawAxisLabels(canvas);
+      // Draw axis labels if enabled
+      if (config.showLabels) {
+        _drawAxisLabels(canvas);
+      }
 
       canvas.save();
       canvas.clipRect(chartArea);
 
-      // Draw heart rate lines and points
+      // Draw heart rate data
       _drawHeartRateData(canvas);
 
+      // Draw trend line if enabled
+      if (config.showTrendLine && data.length > 3) {
+        _drawTrendLine(canvas);
+      }
+
       canvas.restore();
+
+      // Draw selected data indicator if needed
+      if (selectedData != null) {
+        _drawSelectedIndicator(canvas);
+      }
     } catch (e) {
       // Log error and draw fallback
       _logRenderingError(e);
@@ -97,58 +106,58 @@ class HeartRateChartPainter extends CustomPainter {
     }
   }
 
-// New method to log errors
+  // Log rendering errors for debugging
   void _logRenderingError(dynamic error) {
-    // In production, we'd use a proper logging system
-    // For now, print to console in debug mode
-    print('Heart rate chart rendering error: $error');
+    debugPrint('Heart rate chart rendering error: $error');
   }
 
   void _drawHeartRateData(Canvas canvas) {
     if (data.isEmpty) return;
 
-    // Separate data hash from animation hash for better caching
-    final currentDataHash = '${data.length}_${data.first.hashCode}';
-    final currentAnimationHash = animation.value.toStringAsFixed(2);
+    // Calculate a hash based on data and configuration
+    final currentDataHash = _calculateDataHash();
 
-    // Only rebuild paths if data changed, not just animation
-    if (_lastDataHash != currentDataHash) {
+    // Only rebuild paths if data changed or configuration affected the paths
+    if (_lastDataHash != currentDataHash || _heartRatePath == null) {
       _buildPaths();
       _lastDataHash = currentDataHash;
-      _lastAnimationHash = currentAnimationHash;
-    } else if (_heartRatePath == null) {
-      // Rebuild if paths are null for some reason
-      _buildPaths();
-      _lastAnimationHash = currentAnimationHash;
     }
 
     // Skip if paths couldn't be built properly
     if (_heartRatePath == null) return;
 
-    // Draw range area (shaded area between min and max)
-    _drawRangeArea(canvas);
+    // Draw range area between min and max if showing ranges
+    if (config.showRanges && _minRatePath != null && _maxRatePath != null) {
+      _drawRangeArea(canvas);
+    }
 
-    // Draw resting heart rate line if exists
-    if (_restingRatePath != null) {
+    // Draw resting heart rate line if enabled
+    if (config.showRestingRate && _restingRatePath != null) {
       _linePaint
-        ..color =
-            style.restingRateColor.withValues(alpha: 0.6 * animation.value)
+        ..color = style.restingRateColor.withOpacity(0.6 * animation.value)
         ..strokeWidth = style.lineThickness - 0.5
         ..strokeCap = StrokeCap.round;
 
       canvas.drawPath(_restingRatePath!, _linePaint);
     }
 
-    // Draw main heart rate line
-    _linePaint
-      ..color = style.primaryColor.withValues(alpha: 0.8 * animation.value)
-      ..strokeWidth = style.lineThickness
-      ..strokeCap = StrokeCap.round;
+    // Draw main heart rate line if showing average
+    if (config.showAverage) {
+      _linePaint
+        ..color = style.primaryColor.withOpacity(0.8 * animation.value)
+        ..strokeWidth = style.lineThickness
+        ..strokeCap = StrokeCap.round;
 
-    canvas.drawPath(_heartRatePath!, _linePaint);
+      canvas.drawPath(_heartRatePath!, _linePaint);
+    }
 
     // Draw data points - limit for performance
     _drawDataPoints(canvas);
+  }
+
+  // Calculate a hash for data and configuration to determine if paths need rebuilding
+  String _calculateDataHash() {
+    return '${data.length}_${config.showAverage}_${config.showRanges}_${config.showRestingRate}_${config.zoomLevel}';
   }
 
   void _drawBackground(Canvas canvas) {
@@ -157,8 +166,8 @@ class HeartRateChartPainter extends CustomPainter {
       Offset(chartArea.left, chartArea.top),
       Offset(chartArea.left, chartArea.bottom),
       [
-        style.backgroundColor.withValues(alpha: 0.1 * animation.value),
-        style.backgroundColor.withValues(alpha: 0.02 * animation.value),
+        style.backgroundColor.withOpacity(0.1 * animation.value),
+        style.backgroundColor.withOpacity(0.02 * animation.value),
       ],
     );
 
@@ -170,7 +179,7 @@ class HeartRateChartPainter extends CustomPainter {
 
   void _drawEmptyState(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = style.gridLineColor.withValues(alpha: 0.1 * animation.value)
+      ..color = style.gridLineColor.withOpacity(0.1 * animation.value)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -195,14 +204,14 @@ class HeartRateChartPainter extends CustomPainter {
   void _drawErrorState(Canvas canvas, Size size) {
     // Draw a simple fallback UI when rendering errors occur
     final paint = Paint()
-      ..color = Colors.red.withValues(alpha: 0.1)
+      ..color = Colors.red.withOpacity(0.1)
       ..style = PaintingStyle.fill;
 
     canvas.drawRect(chartArea, paint);
 
-    _textPainter.text = const TextSpan(
+    _textPainter.text = TextSpan(
       text: "Error rendering chart",
-      style: TextStyle(color: Colors.red, fontSize: 14),
+      style: style.effectiveEmptyStateStyle.copyWith(color: Colors.red),
     );
     _textPainter.layout();
     _textPainter.paint(
@@ -219,21 +228,26 @@ class HeartRateChartPainter extends CustomPainter {
         HeartRateRange.highMax,
         HeartRateRange.highMin,
         style.highZoneColor,
-        'High'
+        style.highZoneLabel
       ),
       (
         HeartRateRange.elevatedMax,
         HeartRateRange.elevatedMin,
         style.elevatedZoneColor,
-        'Elevated'
+        style.elevatedZoneLabel
       ),
       (
         HeartRateRange.normalMax,
         HeartRateRange.normalMin,
         style.normalZoneColor,
-        'Normal'
+        style.normalZoneLabel
       ),
-      (HeartRateRange.lowMax, HeartRateRange.lowMin, style.lowZoneColor, 'Low'),
+      (
+        HeartRateRange.lowMax,
+        HeartRateRange.lowMin,
+        style.lowZoneColor,
+        style.lowZoneLabel
+      ),
     ];
 
     for (var zone in zones) {
@@ -260,12 +274,12 @@ class HeartRateChartPainter extends CustomPainter {
 
       // Draw zone background with a simple color instead of gradient for better performance
       _fillPaint
-        ..color = zone.$3.withValues(alpha: 0.1 * animation.value)
+        ..color = zone.$3.withOpacity(0.1 * animation.value)
         ..style = PaintingStyle.fill;
       canvas.drawRect(zoneRect, _fillPaint);
 
       // Draw zone label for zones that occupy enough vertical space
-      if ((bottomY - topY) >= 30) {
+      if ((bottomY - topY) >= 30 && config.showLabels) {
         _drawZoneLabel(canvas, zone.$4, zone.$3, zoneRect);
       }
     }
@@ -275,10 +289,8 @@ class HeartRateChartPainter extends CustomPainter {
     _textPainter
       ..text = TextSpan(
         text: text,
-        style: TextStyle(
-          color: color.withValues(alpha: 0.7 * animation.value),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
+        style: style.effectiveZoneTextStyle.copyWith(
+          color: color.withOpacity(0.7 * animation.value),
         ),
       )
       ..layout(maxWidth: chartArea.width * 0.3);
@@ -298,7 +310,7 @@ class HeartRateChartPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas) {
     final paint = Paint()
-      ..color = style.gridLineColor.withValues(alpha: 0.15 * animation.value)
+      ..color = style.gridLineColor.withOpacity(0.15 * animation.value)
       ..strokeWidth = 0.5;
 
     // Draw horizontal grid lines with animation
@@ -337,7 +349,7 @@ class HeartRateChartPainter extends CustomPainter {
   }
 
   int _getVerticalGridCount() {
-    switch (viewType) {
+    switch (config.viewType) {
       case DateRangeType.day:
         return 6; // Hours
       case DateRangeType.week:
@@ -362,8 +374,8 @@ class HeartRateChartPainter extends CustomPainter {
       _textPainter
         ..text = TextSpan(
           text: value.toString(),
-          style: style.labelStyle.copyWith(
-            color: style.labelColor.withValues(alpha: opacity),
+          style: style.effectiveGridLabelStyle.copyWith(
+            color: style.labelColor.withOpacity(opacity),
           ),
         )
         ..layout();
@@ -380,13 +392,13 @@ class HeartRateChartPainter extends CustomPainter {
 
     // Draw x-axis (time) labels with animation - only draw a reasonable number
     final labelStep =
-        viewType == DateRangeType.year ? 1 : _calculateLabelStep();
-    final maxLabels = viewType == DateRangeType.year ? 12 : 8;
-    final step = viewType == DateRangeType.year
+        config.viewType == DateRangeType.year ? 1 : _calculateLabelStep();
+    final maxLabels = config.viewType == DateRangeType.year ? 12 : 8;
+    final step = config.viewType == DateRangeType.year
         ? (data.length / 12).ceil()
         : // Ensure 12 points for year
         max(labelStep, (data.length / maxLabels).ceil());
-    if (viewType == DateRangeType.year) {
+    if (config.viewType == DateRangeType.year) {
       _drawYearViewLabels(canvas, step);
     } else {
       // Original label drawing code for other view types
@@ -394,6 +406,7 @@ class HeartRateChartPainter extends CustomPainter {
         // Existing label drawing code...
       }
     }
+
     for (var i = 0; i < data.length; i += step) {
       if (i >= data.length) continue;
 
@@ -402,14 +415,14 @@ class HeartRateChartPainter extends CustomPainter {
       // Skip if position is outside bounds
       if (x < chartArea.left || x > chartArea.right) continue;
 
-      final label = DateFormatter.format(data[i].startDate, viewType);
+      final label = DateFormatter.format(data[i].startDate, config.viewType);
       final opacity = animation.value.clamp(0.0, 1.0);
 
       _textPainter
         ..text = TextSpan(
           text: label,
-          style: style.labelStyle.copyWith(
-            color: style.labelColor.withValues(alpha: opacity),
+          style: style.effectiveDateLabelStyle.copyWith(
+            color: style.labelColor.withOpacity(opacity),
           ),
         )
         ..layout();
@@ -441,7 +454,7 @@ class HeartRateChartPainter extends CustomPainter {
       _textPainter
         ..text = TextSpan(
           text: label,
-          style: style.labelStyle.copyWith(
+          style: style.labelStyle?.copyWith(
             color: style.labelColor.withValues(alpha: opacity),
           ),
         )
@@ -458,7 +471,7 @@ class HeartRateChartPainter extends CustomPainter {
   int _calculateLabelStep() {
     if (data.length <= 7) return 1;
 
-    switch (viewType) {
+    switch (config.viewType) {
       case DateRangeType.day:
         return (data.length / 6).round().clamp(1, data.length);
       case DateRangeType.week:
@@ -477,12 +490,13 @@ class HeartRateChartPainter extends CustomPainter {
       _restingRatePath = Path();
       _maxRatePath = Path();
       _minRatePath = Path();
+      _trendLinePath = Path();
 
       bool hasValidHeartRate = false;
       bool hasValidRestingRate = false;
       bool hasValidRangeData = false;
 
-      // Collect points for smoother curves
+      // Collect points for different data series
       final List<Offset> heartRatePoints = [];
       final List<Offset> restingRatePoints = [];
       final List<Offset> maxRatePoints = [];
@@ -508,14 +522,10 @@ class HeartRateChartPainter extends CustomPainter {
 
         heartRatePoints.add(Offset(x, heartRateY));
 
-        // Start heart rate path if first valid point
-        if (!hasValidHeartRate) {
-          _heartRatePath!.moveTo(x, heartRateY);
-          hasValidHeartRate = true;
-        }
-
-        // Resting rate if available
-        if (entry.restingRate != null && entry.restingRate! > 0) {
+        // Resting rate if available and enabled
+        if (config.showRestingRate &&
+            entry.restingRate != null &&
+            entry.restingRate! > 0) {
           final restingRateY = _getYPosition(entry.restingRate!.toDouble());
 
           // Skip if y position is outside bounds or NaN
@@ -531,8 +541,8 @@ class HeartRateChartPainter extends CustomPainter {
           }
         }
 
-        // Range data (min/max)
-        if (entry.isRangeData) {
+        // Range data (min/max) if enabled
+        if (config.showRanges && entry.isRangeData) {
           final maxRateY = _getYPosition(entry.maxValue.toDouble());
           final minRateY = _getYPosition(entry.minValue.toDouble());
 
@@ -555,33 +565,49 @@ class HeartRateChartPainter extends CustomPainter {
         }
       }
 
-      // Create lines for the paths - use simpler approach for better performance
-      // Only use smoothing when we have few data points
+      // Create the paths based on data density
       final useSmoothing = heartRatePoints.length < 20;
 
-      if (useSmoothing) {
-        _createSmoothPath(_heartRatePath!, heartRatePoints);
-        if (hasValidRestingRate && restingRatePoints.length > 1) {
+      // Create average heart rate path
+      if (heartRatePoints.isNotEmpty) {
+        if (!hasValidHeartRate) {
+          _heartRatePath!
+              .moveTo(heartRatePoints.first.dx, heartRatePoints.first.dy);
+          hasValidHeartRate = true;
+        }
+
+        if (useSmoothing) {
+          _createSmoothPath(_heartRatePath!, heartRatePoints);
+        } else {
+          _createSimplePath(_heartRatePath!, heartRatePoints);
+        }
+      }
+
+      // Create resting rate path if enabled
+      if (config.showRestingRate && restingRatePoints.isNotEmpty) {
+        if (useSmoothing) {
           _createSmoothPath(_restingRatePath!, restingRatePoints);
-        }
-        if (hasValidRangeData &&
-            maxRatePoints.length > 1 &&
-            minRatePoints.length > 1) {
-          _createSmoothPath(_maxRatePath!, maxRatePoints);
-          _createSmoothPath(_minRatePath!, minRatePoints);
-        }
-      } else {
-        // Simple lines for better performance with many points
-        _createSimplePath(_heartRatePath!, heartRatePoints);
-        if (hasValidRestingRate && restingRatePoints.length > 1) {
+        } else {
           _createSimplePath(_restingRatePath!, restingRatePoints);
         }
-        if (hasValidRangeData &&
-            maxRatePoints.length > 1 &&
-            minRatePoints.length > 1) {
+      }
+
+      // Create min/max paths if enabled
+      if (config.showRanges &&
+          maxRatePoints.isNotEmpty &&
+          minRatePoints.isNotEmpty) {
+        if (useSmoothing) {
+          _createSmoothPath(_maxRatePath!, maxRatePoints);
+          _createSmoothPath(_minRatePath!, minRatePoints);
+        } else {
           _createSimplePath(_maxRatePath!, maxRatePoints);
           _createSimplePath(_minRatePath!, minRatePoints);
         }
+      }
+
+      // Create trend line if enabled and enough points
+      if (config.showTrendLine && heartRatePoints.length > 3) {
+        _createTrendLine(heartRatePoints, _trendLinePath!);
       }
     } catch (e) {
       // Reset paths if an error occurs
@@ -589,6 +615,8 @@ class HeartRateChartPainter extends CustomPainter {
       _restingRatePath = null;
       _maxRatePath = null;
       _minRatePath = null;
+      _trendLinePath = null;
+      debugPrint('Error building heart rate chart paths: $e');
     }
   }
 
@@ -631,6 +659,50 @@ class HeartRateChartPainter extends CustomPainter {
     for (var i = 1; i < points.length; i++) {
       path.lineTo(points[i].dx, points[i].dy);
     }
+  }
+
+  void _createTrendLine(List<Offset> points, Path path) {
+    if (points.length < 4) return;
+
+    // Simple linear regression for trend line
+    double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    int n = points.length;
+
+    for (var i = 0; i < n; i++) {
+      sumX += points[i].dx;
+      sumY += points[i].dy;
+      sumXY += points[i].dx * points[i].dy;
+      sumX2 += points[i].dx * points[i].dx;
+    }
+
+    // Calculate slope and y-intercept
+    final denominator = n * sumX2 - sumX * sumX;
+    if (denominator.abs() < 0.001) return; // Avoid division by near-zero
+
+    final slope = (n * sumXY - sumX * sumY) / denominator;
+    final yIntercept = (sumY - slope * sumX) / n;
+
+    // Calculate start and end points of trend line
+    final startX = points.first.dx;
+    final endX = points.last.dx;
+    final startY = slope * startX + yIntercept;
+    final endY = slope * endX + yIntercept;
+
+    // Create path
+    path.reset();
+    path.moveTo(startX, startY);
+    path.lineTo(endX, endY);
+  }
+
+  void _drawTrendLine(Canvas canvas) {
+    if (_trendLinePath == null) return;
+
+    _linePaint
+      ..color = Colors.grey.withOpacity(0.6 * animation.value)
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(_trendLinePath!, _linePaint);
   }
 
   void _drawRangeArea(Canvas canvas) {
@@ -679,23 +751,20 @@ class HeartRateChartPainter extends CustomPainter {
 
         // Draw the area with a solid color for better performance
         _fillPaint
-          ..color = style.primaryColor.withValues(alpha: 0.1 * animation.value)
+          ..color = style.primaryColor.withOpacity(0.1 * animation.value)
           ..style = PaintingStyle.fill;
 
         canvas.drawPath(areaPath, _fillPaint);
       }
     } catch (e) {
       // Skip drawing range area if an error occurs
+      debugPrint('Error drawing range area: $e');
     }
   }
 
   void _drawDataPoints(Canvas canvas) {
     // Determine optimal rendering strategy based on data density
     final isHighDensity = data.length > 100;
-    final devicePixelRatio = WidgetsBinding.instance.window.devicePixelRatio;
-
-    // Scale hit test threshold by device pixel ratio for consistent touch behavior
-    // final adjustedHitThreshold = _hitTestThreshold * devicePixelRatio;
 
     // Adaptive step calculation
     final step = _calculateAdaptiveStep(data.length);
@@ -744,7 +813,7 @@ class HeartRateChartPainter extends CustomPainter {
       if (isSelected || i % (step * 3) == 0 || !isHighDensity) {
         // Draw white outline
         _pointPaint
-          ..color = Colors.white.withValues(alpha: animation.value)
+          ..color = Colors.white.withOpacity(animation.value)
           ..style = PaintingStyle.fill;
 
         canvas.drawCircle(Offset(x, y), animatedRadius + 1, _pointPaint);
@@ -753,13 +822,14 @@ class HeartRateChartPainter extends CustomPainter {
       // Draw colored center
       _pointPaint
         ..color = (isSelected ? style.selectedColor : style.primaryColor)
-            .withValues(alpha: animation.value)
+            .withOpacity(animation.value)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, y), animatedRadius, _pointPaint);
 
       // Only draw range endpoints for selected point or with larger step and not high density
-      if ((isSelected || i % (step * 5) == 0) &&
+      if (config.showRanges &&
+          (isSelected || i % (step * 5) == 0) &&
           entry.isRangeData &&
           entry.dataPointCount > 1 &&
           !isHighDensity) {
@@ -773,7 +843,7 @@ class HeartRateChartPainter extends CustomPainter {
     }
   }
 
-// Helper method to calculate adaptive step based on data density
+  // Helper method to calculate adaptive step based on data density
   int _calculateAdaptiveStep(int dataLength) {
     if (dataLength <= 20) return 1;
     if (dataLength <= 50) return 2;
@@ -783,7 +853,7 @@ class HeartRateChartPainter extends CustomPainter {
     return (dataLength / 50).round(); // For very large datasets
   }
 
-// Extracted method to draw the selected point
+  // Extracted method to draw the selected point
   void _drawSelectedPoint(Canvas canvas) {
     final index = data.indexOf(selectedData!);
     if (index < 0) return;
@@ -816,7 +886,9 @@ class HeartRateChartPainter extends CustomPainter {
     canvas.drawCircle(Offset(x, y), style.selectedPointRadius, _pointPaint);
 
     // Draw range endpoints
-    if (selectedData!.isRangeData && selectedData!.dataPointCount > 1) {
+    if (config.showRanges &&
+        selectedData!.isRangeData &&
+        selectedData!.dataPointCount > 1) {
       _drawRangeEndpoints(
           canvas, x, selectedData!, style.selectedPointRadius * 0.7);
     }
@@ -839,13 +911,13 @@ class HeartRateChartPainter extends CustomPainter {
     if ((maxY - _getYPosition(entry.avgValue)).abs() > 5) {
       // Max value point (smaller)
       _pointPaint
-        ..color = Colors.white.withValues(alpha: 0.8 * animation.value)
+        ..color = Colors.white.withOpacity(0.8 * animation.value)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, maxY), radius, _pointPaint);
 
       _pointPaint
-        ..color = style.primaryColor.withValues(alpha: 0.7 * animation.value);
+        ..color = style.primaryColor.withOpacity(0.7 * animation.value);
 
       canvas.drawCircle(Offset(x, maxY), radius * 0.7, _pointPaint);
     }
@@ -854,16 +926,37 @@ class HeartRateChartPainter extends CustomPainter {
     if ((minY - _getYPosition(entry.avgValue)).abs() > 5) {
       // Min value point (smaller)
       _pointPaint
-        ..color = Colors.white.withValues(alpha: 0.8 * animation.value)
+        ..color = Colors.white.withOpacity(0.8 * animation.value)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(Offset(x, minY), radius, _pointPaint);
 
       _pointPaint
-        ..color = style.primaryColor.withValues(alpha: 0.7 * animation.value);
+        ..color = style.primaryColor.withOpacity(0.7 * animation.value);
 
       canvas.drawCircle(Offset(x, minY), radius * 0.7, _pointPaint);
     }
+  }
+
+  void _drawSelectedIndicator(Canvas canvas) {
+    if (selectedData == null || selectedData!.isEmpty) return;
+
+    final index = data.indexOf(selectedData!);
+    if (index < 0) return;
+
+    final x = _getXPosition(index);
+
+    // Draw a vertical indicator line
+    _linePaint
+      ..color = style.selectedColor.withOpacity(0.3)
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(
+      Offset(x, chartArea.top),
+      Offset(x, chartArea.bottom),
+      _linePaint,
+    );
   }
 
   double _getYPosition(double value) {
@@ -893,9 +986,7 @@ class HeartRateChartPainter extends CustomPainter {
         chartArea != oldDelegate.chartArea ||
         minValue != oldDelegate.minValue ||
         maxValue != oldDelegate.maxValue ||
-        showGrid != oldDelegate.showGrid ||
-        showRanges != oldDelegate.showRanges ||
-        viewType != oldDelegate.viewType ||
+        config != oldDelegate.config ||
         selectedData != oldDelegate.selectedData;
   }
 }

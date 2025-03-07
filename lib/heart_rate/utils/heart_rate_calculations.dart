@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../utils/tooltip_position.dart';
 import '../models/heart_rate_range.dart';
 import '../models/processed_heart_rate_data.dart';
 
@@ -13,8 +12,9 @@ class HeartRateChartCalculations {
 
   /// Calculate the Y-axis values, min, and max values for the chart
   static (List<int>, double, double) calculateYAxisRange(
-    List<ProcessedHeartRateData> data,
-  ) {
+    List<ProcessedHeartRateData> data, {
+    bool adaptiveScaling = true,
+  }) {
     if (data.isEmpty) {
       return _getDefaultRange();
     }
@@ -52,7 +52,9 @@ class HeartRateChartCalculations {
 
     // Calculate range with padding
     final range = maxValue - minValue;
-    final paddingPercent = _calculateDynamicPadding(range);
+    final paddingPercent =
+        adaptiveScaling ? _calculateDynamicPadding(range) : _minYPadding;
+
     final topPadding = range * paddingPercent;
     final bottomPadding = range * paddingPercent;
 
@@ -110,9 +112,9 @@ class HeartRateChartCalculations {
 
   /// Calculate chart area within the given size
   static Rect calculateChartArea(Size size) {
-    const leftPadding = 25.0; // Space for y-axis labels
-    const rightPadding = 0.0; // Right margin
-    const topPadding = 15.0; // Top margin
+    const leftPadding = 30.0; // Space for y-axis labels
+    const rightPadding = 5.0; // Right margin
+    const topPadding = 10.0; // Top margin
     const bottomPadding = 35.0; // Space for x-axis labels
 
     return Rect.fromLTRB(
@@ -130,7 +132,7 @@ class HeartRateChartCalculations {
       List<ProcessedHeartRateData> data,
       double minValue,
       double maxValue,
-      {double hitTestThreshold = 30}) {
+      {double hitTestThreshold = _hitTestThreshold}) {
     if (data.isEmpty) return null;
 
     // Calculate the distance for each data point
@@ -154,42 +156,6 @@ class HeartRateChartCalculations {
     return nearestPoint;
   }
 
-  /// Calculate tooltip position to ensure it stays within screen bounds
-  static TooltipPosition calculateTooltipPosition(
-    Offset tapPosition,
-    Size tooltipSize,
-    Size screenSize,
-    EdgeInsets padding,
-  ) {
-    double left = tapPosition.dx - (tooltipSize.width / 2);
-    double top = tapPosition.dy - tooltipSize.height - 10;
-    bool showAbove = true;
-
-    // Ensure tooltip stays within horizontal bounds
-    left = left.clamp(
-      padding.left,
-      screenSize.width - tooltipSize.width - padding.right,
-    );
-
-    // Check if tooltip would go off the top of the screen
-    if (top < padding.top) {
-      top = tapPosition.dy + 10;
-      showAbove = false;
-    }
-
-    // Ensure tooltip stays within vertical bounds
-    top = top.clamp(
-      padding.top,
-      screenSize.height - tooltipSize.height - padding.bottom,
-    );
-
-    return TooltipPosition(
-      left: left,
-      top: top,
-      showAbove: showAbove,
-    );
-  }
-
   /// Calculate x-position for a data point
   static double _getXPosition(int index, int totalPoints, Rect chartArea) {
     if (totalPoints <= 1) return chartArea.center.dx;
@@ -209,9 +175,144 @@ class HeartRateChartCalculations {
     double minValue,
     double maxValue,
   ) {
-    if (maxValue == minValue) return chartArea.center.dy;
+    if (maxValue <= minValue) return chartArea.center.dy;
 
     return chartArea.bottom -
         ((value - minValue) / (maxValue - minValue)) * chartArea.height;
   }
+
+  /// Calculate a linear trend line for a set of data points
+  static (double, double)? calculateTrendLine(
+      List<ProcessedHeartRateData> data) {
+    if (data.length < 4) return null;
+
+    final validPoints = data.where((d) => !d.isEmpty).toList();
+    if (validPoints.length < 4) return null;
+
+    double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    int n = validPoints.length;
+
+    for (var i = 0; i < n; i++) {
+      final x = i.toDouble();
+      final y = validPoints[i].avgValue;
+
+      sumX += x;
+      sumY += y;
+      sumXY += x * y;
+      sumX2 += x * x;
+    }
+
+    // Calculate slope and y-intercept
+    final denominator = n * sumX2 - sumX * sumX;
+    if (denominator.abs() < 0.001) return null; // Avoid division by near-zero
+
+    final slope = (n * sumXY - sumX * sumY) / denominator;
+    final yIntercept = (sumY - slope * sumX) / n;
+
+    return (slope, yIntercept);
+  }
+
+  /// Calculate the average heart rate zone for a set of data
+  static HeartRateZoneInfo calculateAverageZone(
+      List<ProcessedHeartRateData> data) {
+    if (data.isEmpty) {
+      return HeartRateZoneInfo(
+        lowPercentage: 0,
+        normalPercentage: 0,
+        elevatedPercentage: 0,
+        highPercentage: 0,
+        primaryZone: 'No Data',
+      );
+    }
+
+    final validData = data.where((d) => !d.isEmpty).toList();
+    if (validData.isEmpty) {
+      return HeartRateZoneInfo(
+        lowPercentage: 0,
+        normalPercentage: 0,
+        elevatedPercentage: 0,
+        highPercentage: 0,
+        primaryZone: 'No Data',
+      );
+    }
+
+    int lowCount = 0, normalCount = 0, elevatedCount = 0, highCount = 0;
+
+    for (var point in validData) {
+      final value = point.avgValue;
+
+      if (value < HeartRateRange.lowMax) {
+        lowCount++;
+      } else if (value < HeartRateRange.normalMax) {
+        normalCount++;
+      } else if (value < HeartRateRange.elevatedMax) {
+        elevatedCount++;
+      } else {
+        highCount++;
+      }
+    }
+
+    final total = validData.length;
+    final lowPercentage = (lowCount / total) * 100;
+    final normalPercentage = (normalCount / total) * 100;
+    final elevatedPercentage = (elevatedCount / total) * 100;
+    final highPercentage = (highCount / total) * 100;
+
+    // Determine primary zone
+    String primaryZone;
+    int maxCount =
+        max(max(lowCount, normalCount), max(elevatedCount, highCount));
+
+    if (maxCount == lowCount) {
+      primaryZone = 'Low';
+    } else if (maxCount == normalCount) {
+      primaryZone = 'Normal';
+    } else if (maxCount == elevatedCount) {
+      primaryZone = 'Elevated';
+    } else {
+      primaryZone = 'High';
+    }
+
+    return HeartRateZoneInfo(
+      lowPercentage: lowPercentage,
+      normalPercentage: normalPercentage,
+      elevatedPercentage: elevatedPercentage,
+      highPercentage: highPercentage,
+      primaryZone: primaryZone,
+    );
+  }
+}
+
+/// Class to hold heart rate zone distribution information
+class HeartRateZoneInfo {
+  final double lowPercentage;
+  final double normalPercentage;
+  final double elevatedPercentage;
+  final double highPercentage;
+  final String primaryZone;
+
+  const HeartRateZoneInfo({
+    required this.lowPercentage,
+    required this.normalPercentage,
+    required this.elevatedPercentage,
+    required this.highPercentage,
+    required this.primaryZone,
+  });
+
+  // Format percentage to 1 decimal place
+  String get formattedLowPercentage => lowPercentage.toStringAsFixed(1);
+
+  String get formattedNormalPercentage => normalPercentage.toStringAsFixed(1);
+
+  String get formattedElevatedPercentage =>
+      elevatedPercentage.toStringAsFixed(1);
+
+  String get formattedHighPercentage => highPercentage.toStringAsFixed(1);
+
+  // Check if any data is available
+  bool get hasData =>
+      lowPercentage > 0 ||
+      normalPercentage > 0 ||
+      elevatedPercentage > 0 ||
+      highPercentage > 0;
 }
