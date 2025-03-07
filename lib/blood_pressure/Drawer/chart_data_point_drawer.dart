@@ -481,7 +481,7 @@ class ChartDataPointDrawer {
 
     // Ease-out cubic for smoother finish
     final t = ((animation.value - delay) / duration).clamp(0.0, 1.0);
-    return 1.0 - pow(1.0 - t, 3) as double;
+    return 1.0 - pow(1.0 - t, 3);
   }
 
   // Helper method for position calculation

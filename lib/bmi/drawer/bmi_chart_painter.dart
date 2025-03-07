@@ -63,7 +63,7 @@ class BMIChartPainter extends CustomPainter {
     }
 
     // Draw BMI range indicators
-    _drawBMIRanges(canvas);
+    // _drawBMIRanges(canvas);
 
     canvas.restore();
 
