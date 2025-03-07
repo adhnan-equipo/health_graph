@@ -10,9 +10,13 @@ class HeartRateChartConfig {
   final bool enableAnimation;
   final bool showTrendLine;
   final bool showRanges;
+  final bool showAverage;
   final double zoomLevel;
   final bool showRestingRate;
   final bool showHRV;
+  final bool showTooltips;
+  final bool adaptiveScaling;
+  final bool showZones;
 
   const HeartRateChartConfig({
     required this.viewType,
@@ -23,9 +27,13 @@ class HeartRateChartConfig {
     this.enableAnimation = true,
     this.showTrendLine = true,
     this.showRanges = true,
+    this.showAverage = true,
     this.zoomLevel = 1.0,
     this.showRestingRate = true,
     this.showHRV = true,
+    this.showTooltips = true,
+    this.adaptiveScaling = true,
+    this.showZones = true,
   });
 
   /// Create a copy with modified properties
@@ -38,9 +46,13 @@ class HeartRateChartConfig {
     bool? enableAnimation,
     bool? showTrendLine,
     bool? showRanges,
+    bool? showAverage,
     double? zoomLevel,
     bool? showRestingRate,
     bool? showHRV,
+    bool? showTooltips,
+    bool? adaptiveScaling,
+    bool? showZones,
   }) {
     return HeartRateChartConfig(
       viewType: viewType ?? this.viewType,
@@ -51,9 +63,13 @@ class HeartRateChartConfig {
       enableAnimation: enableAnimation ?? this.enableAnimation,
       showTrendLine: showTrendLine ?? this.showTrendLine,
       showRanges: showRanges ?? this.showRanges,
+      showAverage: showAverage ?? this.showAverage,
       zoomLevel: zoomLevel ?? this.zoomLevel,
       showRestingRate: showRestingRate ?? this.showRestingRate,
       showHRV: showHRV ?? this.showHRV,
+      showTooltips: showTooltips ?? this.showTooltips,
+      adaptiveScaling: adaptiveScaling ?? this.adaptiveScaling,
+      showZones: showZones ?? this.showZones,
     );
   }
 
@@ -129,6 +145,42 @@ class HeartRateChartConfig {
     );
   }
 
+  /// Get a config for a specific period
+  static HeartRateChartConfig forPeriod({
+    required DateRangeType viewType,
+    required DateTime date,
+  }) {
+    late final DateTime startDate;
+
+    switch (viewType) {
+      case DateRangeType.day:
+        // Start of specified day
+        startDate = DateTime(date.year, date.month, date.day);
+        break;
+      case DateRangeType.week:
+        // Start of week that contains the specified date
+        final weekday = date.weekday;
+        startDate = DateTime(date.year, date.month, date.day - weekday + 1);
+        break;
+      case DateRangeType.month:
+        // Start of month for specified date
+        startDate = DateTime(date.year, date.month, 1);
+        break;
+      case DateRangeType.year:
+        // Start of year for specified date
+        startDate = DateTime(date.year, 1, 1);
+        break;
+    }
+
+    final endDate = calculateEndDate(startDate, viewType);
+
+    return HeartRateChartConfig(
+      viewType: viewType,
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -139,7 +191,16 @@ class HeartRateChartConfig {
           endDate == other.endDate &&
           showGrid == other.showGrid &&
           showLabels == other.showLabels &&
-          zoomLevel == other.zoomLevel;
+          enableAnimation == other.enableAnimation &&
+          showTrendLine == other.showTrendLine &&
+          showRanges == other.showRanges &&
+          showAverage == other.showAverage &&
+          zoomLevel == other.zoomLevel &&
+          showRestingRate == other.showRestingRate &&
+          showHRV == other.showHRV &&
+          showTooltips == other.showTooltips &&
+          adaptiveScaling == other.adaptiveScaling &&
+          showZones == other.showZones;
 
   @override
   int get hashCode =>
@@ -148,5 +209,14 @@ class HeartRateChartConfig {
       endDate.hashCode ^
       showGrid.hashCode ^
       showLabels.hashCode ^
-      zoomLevel.hashCode;
+      enableAnimation.hashCode ^
+      showTrendLine.hashCode ^
+      showRanges.hashCode ^
+      showAverage.hashCode ^
+      zoomLevel.hashCode ^
+      showRestingRate.hashCode ^
+      showHRV.hashCode ^
+      showTooltips.hashCode ^
+      adaptiveScaling.hashCode ^
+      showZones.hashCode;
 }
