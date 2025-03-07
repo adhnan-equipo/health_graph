@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -419,15 +421,39 @@ class _HeartRateChartState extends State<HeartRateChart>
     }
   }
 
+// In lib/heart_rate/heart_rate_chart.dart
   void _showTooltip(ProcessedHeartRateData data, Offset position) {
     _hideTooltip();
 
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
-    final screenSize = MediaQuery.of(context).size;
-    final tooltipSize = const Size(240, 200); // Approximate size
+    // More accurate tooltip size estimation based on content
+    final baseWidth = 280.0;
+    final baseHeight = 180.0;
 
+    // Calculate additional height based on content complexity
+    double additionalHeight = 0;
+
+    // Add height for statistics section if present
+    if (data.isRangeData || data.hrv != null) {
+      additionalHeight += 60.0;
+    }
+
+    // Add height for resting rate if present
+    if (data.restingRate != null) {
+      additionalHeight += 20.0;
+    }
+
+    // Add height for measurements section if present
+    if (data.originalMeasurements.length > 1) {
+      additionalHeight +=
+          min(24.0 + (data.originalMeasurements.length * 4.0), 60.0);
+    }
+
+    final tooltipSize = Size(baseWidth, baseHeight + additionalHeight);
+
+    final screenSize = MediaQuery.of(context).size;
     final globalPosition = renderBox.localToGlobal(position);
     final tooltipPosition = TooltipPosition.calculate(
       tapPosition: globalPosition,

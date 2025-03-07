@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -116,11 +118,10 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
         Text(
           widget.style.summaryLabel,
           style: widget.style.effectiveSubHeaderStyle.copyWith(
-            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         _buildSummaryRow(
           context,
           widget.style.heartRateLabel,
@@ -130,7 +131,7 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
           widget.style.primaryColor,
         ),
         if (widget.data.restingRate != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           _buildSummaryRow(
             context,
             widget.style.restingRateLabel,
@@ -138,7 +139,7 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
             widget.style.restingRateColor,
           ),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -162,7 +163,7 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
@@ -204,13 +205,12 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(height: 24, thickness: 1),
+        const Divider(height: 8, thickness: 1),
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: 4),
           child: Text(
             '${widget.style.measurementsLabel} (${measurements.length})',
             style: widget.style.effectiveSubHeaderStyle.copyWith(
-              fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -232,11 +232,10 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
         Text(
           widget.style.statisticsLabel,
           style: widget.style.effectiveSubHeaderStyle.copyWith(
-            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         Row(
           children: [
             if (widget.data.isRangeData)
@@ -358,43 +357,63 @@ class _HeartRateTooltipState extends State<HeartRateTooltip>
             }
             dismiss();
           },
-          child: Card(
-            elevation: 8,
-            shadowColor: Colors.black26,
-            shape: RoundedRectangleBorder(
-              borderRadius: widget.style.tooltipBorderRadius,
-            ),
-            child: Container(
-              width: 300,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Stack(
+            children: [
+              if (widget.position.alignLeft)
+                Positioned(
+                  top: 20,
+                  right: -8,
+                  child: Transform.rotate(
+                    angle: pi / 4,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: widget.style.tooltipShadow,
+                      ),
+                    ),
+                  ),
+                ),
+              Card(
+                elevation: 8,
+                shadowColor: Colors.black26,
+                shape: RoundedRectangleBorder(
+                  borderRadius: widget.style.tooltipBorderRadius,
+                ),
+                child: Container(
+                  width: 280,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: Text(
-                          _formatTimeRange(),
-                          style: widget.style.effectiveSubHeaderStyle,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _formatTimeRange(),
+                              style: widget.style.effectiveSubHeaderStyle,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: dismiss,
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 16),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: dismiss,
-                      ),
+                      const SizedBox(height: 4),
+                      _buildSummarySection(context),
+                      _buildStatisticsSection(context),
+                      _buildMeasurementsList(context),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  _buildSummarySection(context),
-                  _buildStatisticsSection(context),
-                  _buildMeasurementsList(context),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

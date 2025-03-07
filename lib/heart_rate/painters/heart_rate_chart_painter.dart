@@ -395,51 +395,48 @@ class HeartRateChartPainter extends CustomPainter {
         config.viewType == DateRangeType.year ? 1 : _calculateLabelStep();
     final maxLabels = config.viewType == DateRangeType.year ? 12 : 8;
     final step = config.viewType == DateRangeType.year
-        ? (data.length / 12).ceil()
-        : // Ensure 12 points for year
-        max(labelStep, (data.length / maxLabels).ceil());
+        ? (data.length / 12).ceil() // Ensure 12 points for year
+        : max(labelStep, (data.length / maxLabels).ceil());
+
+    // FIX: Only use one approach to draw x-axis labels based on view type
     if (config.viewType == DateRangeType.year) {
       _drawYearViewLabels(canvas, step);
     } else {
-      // Original label drawing code for other view types
+      // Draw labels for day, week, and month views
       for (var i = 0; i < data.length; i += step) {
-        // Existing label drawing code...
+        if (i >= data.length) continue;
+
+        final x = _getXPosition(i);
+
+        // Skip if position is outside bounds
+        if (x < chartArea.left || x > chartArea.right) continue;
+
+        final label = DateFormatter.format(data[i].startDate, config.viewType);
+        final opacity = animation.value.clamp(0.0, 1.0);
+
+        _textPainter
+          ..text = TextSpan(
+            text: label,
+            style: style.effectiveDateLabelStyle.copyWith(
+              color: style.labelColor.withOpacity(opacity),
+            ),
+          )
+          ..layout();
+
+        // Calculate y position with bounds checking
+        final yOffset = chartArea.bottom + 8;
+        if (yOffset + _textPainter.height > chartArea.bottom + 30)
+          continue; // Skip if too low
+
+        _textPainter.paint(
+          canvas,
+          Offset(x - _textPainter.width / 2, yOffset),
+        );
       }
-    }
-
-    for (var i = 0; i < data.length; i += step) {
-      if (i >= data.length) continue;
-
-      final x = _getXPosition(i);
-
-      // Skip if position is outside bounds
-      if (x < chartArea.left || x > chartArea.right) continue;
-
-      final label = DateFormatter.format(data[i].startDate, config.viewType);
-      final opacity = animation.value.clamp(0.0, 1.0);
-
-      _textPainter
-        ..text = TextSpan(
-          text: label,
-          style: style.effectiveDateLabelStyle.copyWith(
-            color: style.labelColor.withOpacity(opacity),
-          ),
-        )
-        ..layout();
-
-      // Calculate y position with bounds checking
-      final yOffset = chartArea.bottom + 8;
-      if (yOffset + _textPainter.height > chartArea.bottom + 30)
-        continue; // Skip if too low
-
-      _textPainter.paint(
-        canvas,
-        Offset(x - _textPainter.width / 2, yOffset),
-      );
     }
   }
 
-// New method for year view labels
+// Improved method for year view labels to avoid duplication and ensure proper spacing
   void _drawYearViewLabels(Canvas canvas, int step) {
     // Calculate month positions based on chart width
     final monthWidth = chartArea.width / 12;
@@ -454,8 +451,8 @@ class HeartRateChartPainter extends CustomPainter {
       _textPainter
         ..text = TextSpan(
           text: label,
-          style: style.labelStyle?.copyWith(
-            color: style.labelColor.withValues(alpha: opacity),
+          style: style.effectiveDateLabelStyle.copyWith(
+            color: style.labelColor.withOpacity(opacity),
           ),
         )
         ..layout();
