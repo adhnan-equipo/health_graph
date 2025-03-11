@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../models/date_range_type.dart';
 import '../../utils/date_formatter.dart';
 import '../models/processed_bmi_data.dart';
+import '../services/bmi_chart_calculations.dart';
 import '../styles/bmi_chart_style.dart';
 
 class ChartLabelDrawer {
@@ -14,6 +15,8 @@ class ChartLabelDrawer {
     textAlign: TextAlign.center,
   );
 
+// lib/bmi/drawer/chart_label_drawer.dart - Modified method
+
   void drawSideLabels(
     Canvas canvas,
     Rect chartArea,
@@ -21,15 +24,21 @@ class ChartLabelDrawer {
     TextStyle textStyle,
     double animationValue,
   ) {
+    // Calculate min and max for consistent positioning
+    final minValue = yAxisValues.isNotEmpty ? yAxisValues.first : 0;
+    final maxValue = yAxisValues.isNotEmpty ? yAxisValues.last : 100;
+
     for (var value in yAxisValues) {
-      final y = chartArea.bottom -
-          ((value - yAxisValues.first) /
-                  (yAxisValues.last - yAxisValues.first)) *
-              chartArea.height;
+      // Use shared calculation method for consistent positioning with grid lines
+      final y = BMIChartCalculations.calculateYPosition(
+          value, chartArea, minValue.toDouble(), maxValue.toDouble());
+
+      // Format the value with our optimized formatter
+      final formattedValue = BMIChartCalculations.formatAxisLabel(value);
 
       _textPainter
         ..text = TextSpan(
-          text: value.toStringAsFixed(1), // Format BMI values with 1 decimal
+          text: formattedValue,
           style: textStyle.copyWith(
             color: textStyle.color?.withValues(alpha: animationValue),
           ),
@@ -40,15 +49,15 @@ class ChartLabelDrawer {
       final xOffset = chartArea.left - _textPainter.width - 8;
       final animatedXOffset = Offset(
         lerpDouble(chartArea.left, xOffset, animationValue)!,
-        y - _textPainter.height / 2,
+        y - _textPainter.height / 2, // Center text vertically on the line
       );
 
+      // Draw optimized label
       _textPainter.paint(canvas, animatedXOffset);
     }
   }
 
-// Update the drawBottomLabels method:
-
+// Optimized bottom label drawing to avoid overcrowding
   void drawBottomLabels(
     Canvas canvas,
     Rect chartArea,

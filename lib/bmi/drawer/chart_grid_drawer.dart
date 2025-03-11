@@ -1,12 +1,16 @@
+// lib/bmi/drawer/chart_grid_drawer.dart - MODIFIED
+
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+
+import '../services/bmi_chart_calculations.dart'; // Add this import
 
 class ChartGridDrawer {
   void drawGrid(
     Canvas canvas,
     Rect chartArea,
-    List<int> yAxisValues,
+    List<double> yAxisValues, // Changed from List<int> to List<double>
     double minValue,
     double maxValue,
     double animationValue,
@@ -16,8 +20,11 @@ class ChartGridDrawer {
       ..strokeWidth = 0.5
       ..style = PaintingStyle.stroke;
 
+    // Use the same calculation method as the label drawer for consistency
     for (var value in yAxisValues) {
-      final y = _getYPosition(value.toDouble(), chartArea, minValue, maxValue);
+      // Use the shared calculation method from BMIChartCalculations
+      final y = BMIChartCalculations.calculateYPosition(
+          value, chartArea, yAxisValues.first, yAxisValues.last);
 
       final start = Offset(chartArea.left, y);
       final end = Offset(
@@ -29,14 +36,14 @@ class ChartGridDrawer {
     }
   }
 
-// Additional changes to chart_grid_drawer.dart
+  // Additional changes to chart_grid_drawer.dart
   static double calculateXPosition(
     int index,
     int totalPoints,
     Rect chartArea,
   ) {
     // Increase edge padding for better visibility of first and last points
-    const edgePadding = 15.0; // Increased from 12.0
+    const edgePadding = 15.0; // Consistent padding value
     final availableWidth = chartArea.width - (edgePadding * 2);
 
     // Handle single point case
@@ -48,6 +55,9 @@ class ChartGridDrawer {
     return chartArea.left + edgePadding + (index * pointSpacing);
   }
 
+  // This method is deprecated - use BMIChartCalculations.calculateYPosition instead
+  @Deprecated(
+      'Use BMIChartCalculations.calculateYPosition for consistent positioning')
   double _getYPosition(
       double value, Rect chartArea, double minValue, double maxValue) {
     return chartArea.bottom -
