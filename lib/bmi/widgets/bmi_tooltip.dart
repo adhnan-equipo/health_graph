@@ -83,7 +83,7 @@ class _BMITooltipState extends State<BMITooltip>
           children: [
             Text(
               widget.style.lastReadingLabel,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
@@ -96,7 +96,7 @@ class _BMITooltipState extends State<BMITooltip>
           ],
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
 
         // BMI value with big display
         Center(
@@ -104,7 +104,7 @@ class _BMITooltipState extends State<BMITooltip>
             children: [
               Text(
                 latestMeasurement.bmi.toStringAsFixed(1),
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: _getCategoryColor(latestMeasurement.bmi),
                     ),
@@ -112,7 +112,7 @@ class _BMITooltipState extends State<BMITooltip>
               const SizedBox(height: 8),
               Text(
                 _getCategoryText(latestMeasurement.bmi),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: _getCategoryColor(latestMeasurement.bmi),
                     ),
               ),
@@ -120,7 +120,7 @@ class _BMITooltipState extends State<BMITooltip>
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
 
         // Weight and height details
         Row(
@@ -153,13 +153,13 @@ class _BMITooltipState extends State<BMITooltip>
         const SizedBox(height: 4),
         Text(
           value,
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.labelSmall,
         ),
       ],
     );
@@ -173,10 +173,10 @@ class _BMITooltipState extends State<BMITooltip>
   }
 
   String _getCategoryText(double bmi) {
-    if (bmi < 18.5) return widget.style.underweightLabel ?? 'Underweight';
-    if (bmi < 25.0) return widget.style.normalLabel ?? 'Normal';
-    if (bmi < 30.0) return widget.style.overweightLabel ?? 'Overweight';
-    return widget.style.obeseLabel ?? 'Obese';
+    if (bmi < 18.5) return widget.style.underweightLabel;
+    if (bmi < 25.0) return widget.style.normalLabel;
+    if (bmi < 30.0) return widget.style.overweightLabel;
+    return widget.style.obeseLabel;
   }
 
   Widget _buildHistoryInfo() {
@@ -186,14 +186,14 @@ class _BMITooltipState extends State<BMITooltip>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(height: 24),
+        const Divider(height: 8),
         Text(
           widget.style.summaryLabel ?? 'History',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -232,14 +232,14 @@ class _BMITooltipState extends State<BMITooltip>
         const SizedBox(height: 4),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
         ),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.labelSmall,
         ),
       ],
     );

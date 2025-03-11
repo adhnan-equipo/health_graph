@@ -251,7 +251,7 @@ class _BMIChartContentState extends State<BMIChartContent> {
           // Draw empty state overlay with message
           Center(
             child: EmptyStateOverlay(
-              message: widget.style.averageLabel,
+              message: widget.style.noData,
               icon: Icons.monitor_weight_outlined,
             ),
           ),
