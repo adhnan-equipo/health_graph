@@ -56,14 +56,14 @@ class BMIChartPainter extends CustomPainter {
       _gridDrawer.drawGrid(
           canvas,
           chartArea,
-          yAxisValues.map((e) => e.toInt()).toList(),
+          yAxisValues.map((e) => e).toList(),
           minValue,
           maxValue,
           animation.value);
     }
 
     // Draw BMI range indicators
-    // _drawBMIRanges(canvas);
+    _drawBMIRanges(canvas);
 
     canvas.restore();
 
@@ -251,6 +251,7 @@ class BMIChartPainter extends CustomPainter {
     );
   }
 
+  @Deprecated('Use BMIChartCalculations.calculateYPosition instead')
   double _getYPosition(double value) {
     return chartArea.bottom -
         ((value - minValue) / (maxValue - minValue)) * chartArea.height;

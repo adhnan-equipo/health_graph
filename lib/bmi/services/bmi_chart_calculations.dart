@@ -18,37 +18,39 @@ class BMIChartCalculations {
       return _getDefaultRange();
     }
 
-    // Collect all values to consider
-    final allValues = <double>[];
+    // Focus on last recorded values from each section
+    final lastValues = <double>[];
 
-    // Add data points (only consider non-empty data)
+    // Extract last recorded value from each non-empty section
     for (var point in data.where((d) => !d.isEmpty)) {
-      allValues.addAll([
-        point.minBMI,
-        point.maxBMI,
-        point.avgBMI,
-      ]);
+      if (point.originalMeasurements.isNotEmpty) {
+        // Use last recorded measurement for more accurate representation
+        lastValues.add(point.originalMeasurements.last.bmi);
+      } else {
+        lastValues.add(point.avgBMI); // Fallback to average
+      }
     }
 
-    // Add BMI category reference ranges if no custom ranges
+    // Add BMI category reference ranges if no custom ranges provided
     if (referenceRanges.isEmpty) {
-      allValues.addAll([15.0, 18.5, 25.0, 30.0, 35.0]);
+      // Critical BMI thresholds for reference lines
+      lastValues.addAll([18.5, 25.0, 30.0]);
     } else {
-      // Add reference ranges
+      // Add custom reference ranges
       for (var range in referenceRanges) {
-        allValues.addAll([range.$1, range.$2]);
+        lastValues.addAll([range.$1, range.$2]);
       }
     }
 
     // Filter out invalid values
     final validValues =
-        allValues.where((v) => !v.isNaN && v.isFinite && v > 0).toList();
+        lastValues.where((v) => !v.isNaN && v.isFinite && v > 0).toList();
 
     if (validValues.isEmpty) {
       return _getDefaultRange();
     }
 
-    // Find actual min/max from data
+    // Calculate min/max from actual data
     var minValue = validValues.reduce(min);
     var maxValue = validValues.reduce(max);
 
@@ -57,22 +59,147 @@ class BMIChartCalculations {
     final topPadding = range * 0.15;
     final bottomPadding = range * 0.15;
 
-    // Always include standard BMI ranges
-    minValue = min(minValue - bottomPadding, 15.0);
+    // Enforce minimum value of 0 (never go negative)
+    minValue = max(0.0, minValue - bottomPadding);
+
+    // Ensure maximum covers obese BMI range
     maxValue = max(maxValue + topPadding, 35.0);
 
-    // Ensure we have a reasonable range
+    // Maintain a reasonable range for better visualization
     if (maxValue - minValue < 5) {
       maxValue = minValue + 5;
     }
 
-    // Calculate optimal step size
-    final stepSize = _calculateStepSize(minValue, maxValue);
+    // Calculate optimal step size for max 5 labels
+    final stepSize = _calculateOptimalStepSize(minValue, maxValue);
 
-    // Generate axis values with better distribution
+    // Generate axis values with better distribution (limited to 5 max)
     final yAxisValues = _generateAxisValues(minValue, maxValue, stepSize);
 
     return (yAxisValues, minValue, maxValue);
+  }
+
+  static double calculateYPosition(
+    double value,
+    Rect chartArea,
+    double minValue,
+    double maxValue,
+  ) {
+    // Safety check for invalid values
+    if (value.isNaN ||
+        !value.isFinite ||
+        minValue.isNaN ||
+        !minValue.isFinite ||
+        maxValue.isNaN ||
+        !maxValue.isFinite ||
+        maxValue <= minValue) {
+      return chartArea.center.dy;
+    }
+
+    // Calculate the normalized position (0-1 range)
+    final normalizedPosition = (value - minValue) / (maxValue - minValue);
+
+    // Map to the chart area (bottom = minValue, top = maxValue)
+    return chartArea.bottom - normalizedPosition * chartArea.height;
+  }
+
+  // NEW METHOD: Format Y-axis labels for better readability
+  static String formatAxisLabel(double value) {
+    // Handle large values with K/M suffix
+    if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(value % 1000000 == 0 ? 0 : 1)}M';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(value % 1000 == 0 ? 0 : 1)}K';
+    }
+
+    // Avoid unnecessary decimal places
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    } else if (value < 10) {
+      return value.toStringAsFixed(1); // One decimal for small values
+    }
+
+    // Round to nearest integer for most BMI values
+    return value.round().toString();
+  }
+
+// Calculate optimal step size for readable labels
+  static double _calculateOptimalStepSize(double min, double max) {
+    final range = max - min;
+    final targetSteps = 4; // Target 4 steps to ensure 5 or fewer labels
+    final rawStep = range / targetSteps;
+
+    // Use "nice" numbers for step sizes (powers of 2, 5, 10)
+    if (rawStep <= 1) return 1.0;
+    if (rawStep <= 2) return 2.0;
+    if (rawStep <= 5) return 5.0;
+    if (rawStep <= 10) return 10.0;
+    if (rawStep <= 20) return 20.0;
+    if (rawStep <= 50) return 50.0;
+    if (rawStep <= 100) return 100.0;
+
+    // Handle very large values
+    return (rawStep / 100).ceil() * 100;
+  }
+
+// Generate evenly spaced axis values, limited to maximum of 5
+  static List<double> _generateAxisValues(double min, double max, double step) {
+    final values = <double>[];
+
+    // Start at floor of min value aligned to step
+    double currentValue = (min / step).floor() * step;
+
+    // Generate values up to max, limiting to 5 total
+    while (currentValue <= max && values.length < 5) {
+      values.add(currentValue);
+      currentValue += step;
+    }
+
+    // Ensure we include max value if we have space
+    if (values.length < 5 &&
+        !values.contains(max) &&
+        (max - values.last) > step * 0.1) {
+      values.add(max);
+    }
+
+    // If we have too few values, add intermediate steps
+    if (values.length < 3 && values.length > 1) {
+      final intermediateValues = <double>[];
+      for (int i = 0; i < values.length - 1; i++) {
+        intermediateValues.add((values[i] + values[i + 1]) / 2);
+      }
+
+      values.addAll(intermediateValues);
+      values.sort();
+    }
+
+    // Enforce maximum of 5 values
+    if (values.length > 5) {
+      final result = <double>[values.first]; // Keep min
+
+      // Keep evenly distributed middle values
+      final step = (values.length - 2) / 3.0;
+      for (int i = 1; i <= 3; i++) {
+        final index = (i * step).round();
+        if (index > 0 && index < values.length - 1) {
+          result.add(values[index]);
+        }
+      }
+
+      result.add(values.last); // Keep max
+      return result;
+    }
+
+    return values;
+  }
+
+// Default range when no data is available
+  static (List<double>, double, double) _getDefaultRange() {
+    const defaultMin = 0.0; // Start at 0
+    const defaultMax = 35.0; // Cover full BMI range
+    const step = 7.0; // 5 labels (0, 7, 14, 21, 28, 35)
+    final values = _generateAxisValues(defaultMin, defaultMax, step);
+    return (values, defaultMin, defaultMax);
   }
 
   static double _calculateStepSize(double min, double max) {
@@ -84,29 +211,6 @@ class BMIChartCalculations {
     if (rawStep <= 2) return 2.0;
     if (rawStep <= 5) return 5.0;
     return 10.0;
-  }
-
-  static List<double> _generateAxisValues(double min, double max, double step) {
-    final values = <double>[];
-    var currentValue = min;
-
-    // Round min down to nearest step
-    currentValue = (min / step).floor() * step;
-
-    while (currentValue <= max) {
-      values.add(currentValue);
-      currentValue += step;
-    }
-
-    return values;
-  }
-
-  static (List<double>, double, double) _getDefaultRange() {
-    const defaultMin = 15.0;
-    const defaultMax = 35.0;
-    const step = 5.0;
-    final values = _generateAxisValues(defaultMin, defaultMax, step);
-    return (values, defaultMin, defaultMax);
   }
 
   static Rect calculateChartArea(Size size) {

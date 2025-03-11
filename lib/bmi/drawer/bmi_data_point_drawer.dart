@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../models/processed_bmi_data.dart';
+import '../services/bmi_chart_calculations.dart';
 import '../styles/bmi_chart_style.dart';
 
 class BMIDataPointDrawer {
@@ -28,7 +29,7 @@ class BMIDataPointDrawer {
   ) {
     if (data.isEmpty) return;
 
-    // Only rebuild path if data changes
+    // Hash calculation for path caching (unchanged)
     final currentHash =
         '${data.length}_${data.isNotEmpty ? data.first.hashCode : 0}';
     if (currentHash != _lastDataHash) {
@@ -36,11 +37,11 @@ class BMIDataPointDrawer {
       _buildTrendPath(chartArea, data, minValue, maxValue);
     }
 
-    // Draw trend line with enhanced effects
+    // Draw trend line (unchanged)
     _drawEnhancedTrendLine(canvas, chartArea, style, animation);
+
     const edgePadding = 15.0; // Same as in chart_grid_drawer.dart
     final availableWidth = chartArea.width - (edgePadding * 2);
-    // Draw data points with emphasizing latest values
     final xStep = data.length > 1 ? availableWidth / (data.length - 1) : 0;
 
     for (var i = 0; i < data.length; i++) {
@@ -48,23 +49,28 @@ class BMIDataPointDrawer {
       if (entry.isEmpty) continue;
 
       final x = chartArea.left + edgePadding + (i * xStep);
-      final y = _getYPosition(entry.avgBMI, chartArea, minValue, maxValue);
+
+      // Get the latest measurement value
+      double yValue;
+      if (entry.originalMeasurements.isNotEmpty) {
+        yValue = entry.originalMeasurements.last.bmi;
+      } else {
+        yValue = entry.avgBMI; // Fallback to average
+      }
+
+      // Use shared calculation method for consistent positioning
+      final y = BMIChartCalculations.calculateYPosition(
+          yValue, chartArea, minValue, maxValue);
+
       final position = Offset(x, y);
 
-      // Calculate animation value based on position for staggered effect
+      // Animation and selections (unchanged)
       final pointAnimationValue =
           _calculateAnimationValue(i, data.length, animation);
       final isSelected = entry == selectedData;
-
-      // Draw selection highlight first if needed
-      // if (isSelected) {
-      //   _drawSelectionHighlight(canvas, x, chartArea, style, animation.value);
-      // }
-
-      // Determine if this is the latest data point
       final isLatestPoint = i == data.length - 1;
 
-      // Draw enhanced data point with emphasizing latest value
+      // Draw data point
       _drawEnhancedDataPoint(
         canvas,
         position,
@@ -72,61 +78,85 @@ class BMIDataPointDrawer {
         pointAnimationValue,
         isSelected,
         isLatestPoint,
-        entry.avgBMI,
+        yValue,
       );
     }
   }
 
+  // MODIFIED: Update path building to use shared calculation
   void _buildTrendPath(
     Rect chartArea,
     List<ProcessedBMIData> data,
     double minValue,
     double maxValue,
   ) {
+    if (data.isEmpty) return;
+
     _trendPath = Path();
 
-    List<Offset> points = [];
-    bool isFirstValid = true;
+    // Store valid points for processing
+    final List<Offset> points = [];
 
     const edgePadding = 15.0;
     final availableWidth = chartArea.width - (edgePadding * 2);
     final xStep = data.length > 1 ? availableWidth / (data.length - 1) : 0;
 
+    // First pass: collect all valid points
     for (var i = 0; i < data.length; i++) {
       if (data[i].isEmpty) continue;
 
+      // Get the appropriate value
+      double yValue;
+      if (data[i].originalMeasurements.isNotEmpty) {
+        yValue = data[i].originalMeasurements.last.bmi;
+      } else {
+        yValue = data[i].avgBMI;
+      }
+
       final x = chartArea.left + edgePadding + (i * xStep);
-      final y = _getYPosition(data[i].avgBMI, chartArea, minValue, maxValue);
+
+      // Use shared calculation method for consistent positioning
+      final y = BMIChartCalculations.calculateYPosition(
+          yValue, chartArea, minValue, maxValue);
 
       points.add(Offset(x, y));
-
-      if (isFirstValid) {
-        _trendPath!.moveTo(x, y);
-        isFirstValid = false;
-      } else {
-        // Use smooth curve for better appearance
-        if (points.length >= 3) {
-          final p1 = points[points.length - 3];
-          final p2 = points[points.length - 2];
-          final p3 = points[points.length - 1];
-
-          if (points.length == 3) {
-            _trendPath!.lineTo(p2.dx, p2.dy);
-          }
-
-          // Calculate control point for a smooth curve
-          final controlPoint =
-              Offset(p2.dx + (p3.dx - p1.dx) / 6, p2.dy + (p3.dy - p1.dy) / 6);
-
-          _trendPath!.quadraticBezierTo(
-              controlPoint.dx, controlPoint.dy, p3.dx, p3.dy);
-        } else {
-          _trendPath!.lineTo(x, y);
-        }
-      }
     }
+
+    // If we have no valid points, return
+    if (points.isEmpty) return;
+
+    // Start the path at the first point
+    _trendPath!.moveTo(points[0].dx, points[0].dy);
+
+    // If we only have one point, we're done
+    if (points.length == 1) return;
+
+    // If we have exactly two points, just draw a straight line
+    if (points.length == 2) {
+      _trendPath!.lineTo(points[1].dx, points[1].dy);
+      return;
+    }
+
+    // For three or more points, use a smoother algorithm
+    // Simple approach: draw direct lines between points
+    for (int i = 1; i < points.length; i++) {
+      _trendPath!.lineTo(points[i].dx, points[i].dy);
+    }
+
+    // For a smoother curve (optional), you can use this instead:
+    /*
+    // Use a simple cardinal spline for smoothing
+    for (int i = 1; i < points.length; i++) {
+      final current = points[i];
+      final previous = points[i-1];
+
+      // Simple direct line - more reliable
+      _trendPath!.lineTo(current.dx, current.dy);
+    }
+    */
   }
 
+  // For enhanced trend line drawing - ensure we're using the trendPath
   void _drawEnhancedTrendLine(
     Canvas canvas,
     Rect chartArea,
@@ -135,106 +165,66 @@ class BMIDataPointDrawer {
   ) {
     if (_trendPath == null) return;
 
-    // Create a gradient for the trend line
-    final gradient = ui.Gradient.linear(
-      Offset(0, chartArea.top),
-      Offset(0, chartArea.bottom),
-      [
-        style.lineColor.withValues(alpha: 0.8 * animation.value),
-        style.lineColor.withValues(alpha: 0.4 * animation.value),
-      ],
-    );
+    // Draw the main line
+    final linePaint = Paint()
+      ..color = style.lineColor.withOpacity(0.8 * animation.value)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    // Draw trend line with animation and gradient
-    _linePaint
-      ..shader = gradient
-      ..strokeWidth = style.lineThickness
-      ..style = PaintingStyle.stroke;
+    canvas.drawPath(_trendPath!, linePaint);
 
-    // Use path metrics to animate the path drawing
-    final pathMetrics = _trendPath!.computeMetrics();
+    // Add a subtle shadow for depth (optional)
+    final shadowPaint = Paint()
+      ..color = style.lineColor.withOpacity(0.15 * animation.value)
+      ..strokeWidth = 4.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
 
-    for (final metric in pathMetrics) {
-      final extractPath = metric.extractPath(
-        0.0,
-        metric.length * animation.value,
-      );
-      canvas.drawPath(extractPath, _linePaint);
-    }
-
-    // Reset shader
-    _linePaint.shader = null;
-
-    // Add a subtle fill under the line for better visual effect
-    if (animation.value > 0.3) {
-      final fillOpacity =
-          (animation.value - 0.3) / 0.7 * 0.15; // Max 15% opacity
-
-      // Create path for area fill
-      final fillPath = Path.from(_trendPath!);
-      fillPath.lineTo(chartArea.right, chartArea.bottom);
-      fillPath.lineTo(chartArea.left, chartArea.bottom);
-      fillPath.close();
-
-      // Draw fill with gradient
-      _fillPaint
-        ..shader = ui.Gradient.linear(
-          Offset(0, chartArea.top),
-          Offset(0, chartArea.bottom),
-          [
-            style.lineColor.withValues(alpha: fillOpacity),
-            style.lineColor.withValues(alpha: 0),
-          ],
-        )
-        ..style = PaintingStyle.fill;
-
-      canvas.drawPath(fillPath, _fillPaint);
-
-      // Reset shader
-      _fillPaint.shader = null;
-    }
+    canvas.drawPath(_trendPath!, shadowPaint);
   }
 
-  // void _drawSelectionHighlight(
-  //   Canvas canvas,
-  //   double x,
-  //   Rect chartArea,
-  //   BMIChartStyle style,
-  //   double animationValue,
-  // )
-  // {
-  //   // Draw vertical line highlight with animation
-  //   final paint = Paint()
-  //     ..color = style.selectedHighlightColor.withValues(alpha: animationValue)
-  //     ..strokeWidth = 2;
-  //
-  //   // Animate from center
-  //   final centerY = chartArea.center.dy;
-  //   final topY = ui.lerpDouble(centerY, chartArea.top, animationValue)!;
-  //   final bottomY = ui.lerpDouble(centerY, chartArea.bottom, animationValue)!;
-  //
-  //   canvas.drawLine(
-  //     Offset(x, topY),
-  //     Offset(x, bottomY),
-  //     paint,
-  //   );
-  //
-  //   // Add subtle glow effect
-  //   paint
-  //     ..color =
-  //         style.selectedHighlightColor.withValues(alpha: 0.3 * animationValue)
-  //     ..strokeWidth = 8
-  //     ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-  //
-  //   canvas.drawLine(
-  //     Offset(x, topY),
-  //     Offset(x, bottomY),
-  //     paint,
-  //   );
-  //
-  //   // Reset mask filter
-  //   paint.maskFilter = null;
-  // }
+  void _drawSelectionHighlight(
+    Canvas canvas,
+    double x,
+    Rect chartArea,
+    BMIChartStyle style,
+    double animationValue,
+  ) {
+    // Draw vertical line highlight with animation
+    final paint = Paint()
+      ..color = style.selectedHighlightColor.withValues(alpha: animationValue)
+      ..strokeWidth = 2;
+
+    // Animate from center
+    final centerY = chartArea.center.dy;
+    final topY = ui.lerpDouble(centerY, chartArea.top, animationValue)!;
+    final bottomY = ui.lerpDouble(centerY, chartArea.bottom, animationValue)!;
+
+    canvas.drawLine(
+      Offset(x, topY),
+      Offset(x, bottomY),
+      paint,
+    );
+
+    // Add subtle glow effect
+    paint
+      ..color =
+          style.selectedHighlightColor.withValues(alpha: 0.3 * animationValue)
+      ..strokeWidth = 8
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    canvas.drawLine(
+      Offset(x, topY),
+      Offset(x, bottomY),
+      paint,
+    );
+
+    // Reset mask filter
+    paint.maskFilter = null;
+  }
 
   void _drawEnhancedDataPoint(
     Canvas canvas,
@@ -402,21 +392,5 @@ class BMIDataPointDrawer {
     // Ease-out cubic for smoother finish
     final t = ((animation.value - delay) / duration).clamp(0.0, 1.0);
     return 1.0 - pow(1.0 - t, 3) as double;
-  }
-
-  double _getYPosition(
-      double value, Rect chartArea, double minValue, double maxValue) {
-    if (value.isNaN ||
-        !value.isFinite ||
-        minValue.isNaN ||
-        !minValue.isFinite ||
-        maxValue.isNaN ||
-        !maxValue.isFinite ||
-        maxValue == minValue) {
-      return chartArea.center.dy;
-    }
-
-    return chartArea.bottom -
-        ((value - minValue) / (maxValue - minValue)) * chartArea.height;
   }
 }
