@@ -66,14 +66,14 @@ class O2SaturationChartPainter extends CustomPainter {
     }
 
     // Draw reference ranges with animation
-    // _rangeDrawer.drawReferenceRanges(
-    //   canvas,
-    //   chartArea,
-    //   style,
-    //   minValue,
-    //   maxValue,
-    //   animation.value,
-    // );
+    _rangeDrawer.drawReferenceRanges(
+      canvas,
+      chartArea,
+      style,
+      minValue,
+      maxValue,
+      animation.value,
+    );
 
     canvas.restore();
 

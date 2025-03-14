@@ -190,8 +190,7 @@ class BMIChartPainter extends CustomPainter {
     }
 
     // Draw ranges from bottom to top with animation
-    drawRangeIfVisible(
-        30.0, 100.0, style.obeseLabel ?? 'Obese', style.obeseRangeColor);
+    drawRangeIfVisible(30.0, 100.0, style.obeseLabel, style.obeseRangeColor);
     drawRangeIfVisible(25.0, 30.0, style.overweightLabel ?? 'Overweight',
         style.overweightRangeColor);
     drawRangeIfVisible(
