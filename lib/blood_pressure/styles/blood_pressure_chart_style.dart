@@ -39,8 +39,8 @@ class BloodPressureChartStyle {
   final String diastolic;
 
   const BloodPressureChartStyle({
-    this.systolicColor = const Color(0xFFE53E3E),
-    this.diastolicColor = const Color(0xFF3182CE),
+    this.systolicColor = const Color(0xFFEC7D31),
+    this.diastolicColor = const Color(0xFF36BDCB),
     this.connectorColor = const Color(0x24006DFF),
     this.pointRadius = 4.0,
     this.singlePointRadius = 5.0, // Slightly larger for better visibility

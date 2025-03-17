@@ -84,32 +84,35 @@ class O2DataPointDrawer {
         final animationValue =
             _calculateAnimationValue(i, data.length, animation);
 
+        _drawSinglePoint(
+            canvas, Offset(x, o2Y), pulsePoint, style, animationValue);
+
         // Draw based on single or multiple readings
-        if (entry.dataPointCount == 1) {
-          // Single reading
-          _drawSinglePoint(
-              canvas, Offset(x, o2Y), pulsePoint, style, animationValue);
-        } else {
-          // Multiple readings (range)
-          _drawRangePoint(
-              canvas,
-              x,
-              Offset(x, o2Y),
-              Offset(x, o2MinY),
-              Offset(x, o2MaxY),
-              pulsePoint,
-              pulseMinPoint,
-              pulseMaxPoint,
-              style,
-              animationValue,
-              entry);
-        }
+        // if (entry.dataPointCount == 1) {
+        //   // Single reading
+        //   _drawSinglePoint(
+        //       canvas, Offset(x, o2Y), pulsePoint, style, animationValue);
+        // } else {
+        //   // Multiple readings (range)
+        //   _drawRangePoint(
+        //       canvas,
+        //       x,
+        //       Offset(x, o2Y),
+        //       Offset(x, o2MinY),
+        //       Offset(x, o2MaxY),
+        //       pulsePoint,
+        //       pulseMinPoint,
+        //       pulseMaxPoint,
+        //       style,
+        //       animationValue,
+        //       entry);
+        // }
 
         // Draw reading count badge if multiple readings
-        if (entry.dataPointCount > 1) {
-          _drawReadingCount(canvas, Offset(x, o2Y), entry.dataPointCount, style,
-              animationValue);
-        }
+        // if (entry.dataPointCount > 1) {
+        //   _drawReadingCount(canvas, Offset(x, o2Y), entry.dataPointCount, style,
+        //       animationValue);
+        // }
       }
     }
   }
@@ -219,42 +222,48 @@ class O2DataPointDrawer {
     ProcessedO2SaturationData data,
   ) {
     // Draw O2 range line
-    _linePaint
-      ..color = style.primaryColor.withOpacity(0.7 * animationValue)
-      ..strokeWidth = 2.0;
-    canvas.drawLine(o2MinPoint, o2MaxPoint, _linePaint);
+    // Commented out to hide range lines
+    // _linePaint
+    //   ..color = style.primaryColor.withOpacity(0.7 * animationValue)
+    //   ..strokeWidth = 2.0;
+    // canvas.drawLine(o2MinPoint, o2MaxPoint, _linePaint);
 
-    // Draw O2 point
+    // Draw O2 point (keep this to show the main data point)
     _drawDataPoint(
         canvas, o2Point, style.primaryColor, style.pointRadius, animationValue);
 
     // Draw min/max end caps for O2
-    _fillPaint
-      ..color = style.primaryColor.withOpacity(0.7 * animationValue)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(o2MinPoint, style.pointRadius * 0.7, _fillPaint);
-    canvas.drawCircle(o2MaxPoint, style.pointRadius * 0.7, _fillPaint);
+    // Commented out to hide range indicators
+    // _fillPaint
+    //   ..color = style.primaryColor.withOpacity(0.7 * animationValue)
+    //   ..style = PaintingStyle.fill;
+    // canvas.drawCircle(o2MinPoint, style.pointRadius * 0.7, _fillPaint);
+    // canvas.drawCircle(o2MaxPoint, style.pointRadius * 0.7, _fillPaint);
 
-    // Draw pulse range if all points are available
-    if (pulsePoint != null && pulseMinPoint != null && pulseMaxPoint != null) {
-      // Draw pulse range line
-      _linePaint
-        ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
-        ..strokeWidth = 2.0;
-      canvas.drawLine(pulseMinPoint, pulseMaxPoint, _linePaint);
-
+    // Draw pulse rate data if available
+    if (pulsePoint != null) {
       // Draw pulse point
       _drawDataPoint(canvas, pulsePoint, style.pulseRateColor,
           style.pointRadius, animationValue);
 
-      // Draw min/max end caps for pulse
-      _fillPaint
-        ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(pulseMinPoint, style.pointRadius * 0.7, _fillPaint);
-      canvas.drawCircle(pulseMaxPoint, style.pointRadius * 0.7, _fillPaint);
+      // Comment out pulse range display
+      // if (pulseMinPoint != null && pulseMaxPoint != null) {
+      //   // Draw pulse range line
+      //   _linePaint
+      //     ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
+      //     ..strokeWidth = 2.0;
+      //   canvas.drawLine(pulseMinPoint, pulseMaxPoint, _linePaint);
+      //
+      //   // Draw min/max end caps for pulse
+      //   _fillPaint
+      //     ..color = style.pulseRateColor.withOpacity(0.7 * animationValue)
+      //     ..style = PaintingStyle.fill;
+      //   canvas.drawCircle(pulseMinPoint, style.pointRadius * 0.7, _fillPaint);
+      //   canvas.drawCircle(pulseMaxPoint, style.pointRadius * 0.7, _fillPaint);
+      // }
 
-      // Draw connecting line between O2 and pulse
+      // Optional: Keep or comment out the connecting line between O2 and pulse
+      // Comment this out if you want to remove the connecting line
       _linePaint
         ..color = Colors.grey.withOpacity(0.3 * animationValue)
         ..strokeWidth = 1.0;
