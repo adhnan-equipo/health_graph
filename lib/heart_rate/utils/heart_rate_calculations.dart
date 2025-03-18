@@ -125,7 +125,7 @@ class HeartRateChartCalculations {
     );
   }
 
-  /// Find data point near the given position
+  /// Find data point near the given position, considering the entire vertical line
   static ProcessedHeartRateData? findNearestDataPoint(
       Offset position,
       Rect chartArea,
@@ -135,20 +135,22 @@ class HeartRateChartCalculations {
       {double hitTestThreshold = _hitTestThreshold}) {
     if (data.isEmpty) return null;
 
-    // Calculate the distance for each data point
-    double minDistance = double.infinity;
+    // Calculate the horizontal distance for each data point's vertical line
+    double minHorizontalDistance = double.infinity;
     ProcessedHeartRateData? nearestPoint;
 
     for (var i = 0; i < data.length; i++) {
       if (data[i].isEmpty) continue;
 
       final x = _getXPosition(i, data.length, chartArea);
-      final y = _getYPosition(data[i].avgValue, chartArea, minValue, maxValue);
 
-      final distance = (position - Offset(x, y)).distance;
+      // Calculate horizontal distance only - this enables tapping anywhere along the vertical line
+      final horizontalDistance = (position.dx - x).abs();
 
-      if (distance < minDistance && distance < hitTestThreshold) {
-        minDistance = distance;
+      // Check if this point's vertical line is closer than the current nearest
+      if (horizontalDistance < minHorizontalDistance &&
+          horizontalDistance < hitTestThreshold) {
+        minHorizontalDistance = horizontalDistance;
         nearestPoint = data[i];
       }
     }
