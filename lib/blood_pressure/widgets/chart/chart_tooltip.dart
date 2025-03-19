@@ -34,34 +34,53 @@ class _ChartTooltipState extends State<ChartTooltip>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+
   String _formatTimeRange() {
     final startDate = widget.data.startDate;
     final endDate = widget.data.endDate;
+    final isSameDay = startDate.year == endDate.year &&
+        startDate.month == endDate.month &&
+        startDate.day == endDate.day;
 
     switch (widget.viewType) {
       case DateRangeType.day:
-        if (widget.rangeData.length <= 1) {
-          return DateFormat('MMM d, HH:mm').format(startDate);
+        // For single data point, show exact time from the original measurement
+        if (widget.data.originalMeasurements.length == 1) {
+          // Use the actual measurement time if available, not the processed data's start time
+          final exactTime = widget.data.originalMeasurements.first.date;
+          return DateFormat('MMM d, HH:mm').format(exactTime);
         }
-        return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
+
+        // For multiple data points on the same day, show time range
+        if (isSameDay) {
+          return '${DateFormat('MMM d').format(startDate)}, ${DateFormat('HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
+        } else {
+          // Across days (rare for day view)
+          return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('MMM d, HH:mm').format(endDate)}';
+        }
 
       case DateRangeType.week:
-        if (startDate.day == endDate.day) {
-          return DateFormat('EEE, MMM d').format(startDate);
+        if (isSameDay) {
+          return DateFormat('EEE, MMM d, yyyy').format(startDate);
         }
-        return '${DateFormat('EEE, MMM d').format(startDate)} - ${DateFormat('EEE, MMM d').format(endDate)}';
+        return '${DateFormat('EEE, MMM d').format(startDate)} - ${DateFormat('EEE, MMM d, yyyy').format(endDate)}';
 
       case DateRangeType.month:
-        if (startDate.day == endDate.day) {
-          return DateFormat('MMM d').format(startDate);
+        if (isSameDay) {
+          return DateFormat('MMM d, yyyy').format(startDate);
         }
-        return '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d').format(endDate)}';
+        return '${DateFormat('MMM d').format(startDate)} - ${DateFormat('MMM d, yyyy').format(endDate)}';
 
       case DateRangeType.year:
-        if (startDate.month == endDate.month) {
+        if (startDate.month == endDate.month &&
+            startDate.year == endDate.year) {
           return DateFormat('MMMM yyyy').format(startDate);
         }
-        return '${DateFormat('MMM').format(startDate)} - ${DateFormat('MMM yyyy').format(endDate)}';
+        if (startDate.year == endDate.year) {
+          return '${DateFormat('MMM').format(startDate)} - ${DateFormat('MMM yyyy').format(endDate)}';
+        }
+        return '${DateFormat('MMM yyyy').format(startDate)} - ${DateFormat('MMM yyyy').format(endDate)}';
     }
   }
 
@@ -69,14 +88,18 @@ class _ChartTooltipState extends State<ChartTooltip>
     final measurements = widget.data.originalMeasurements;
     if (measurements.isEmpty) return const SizedBox.shrink();
 
+    // Only show the first 5 measurements if there are many
+    final displayCount = measurements.length > 5 ? 5 : measurements.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(height: 16),
+        const Divider(height: 24, thickness: 1),
         Text(
           '${widget.style.measurementsLabels} (${measurements.length})',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
               ),
         ),
       ],
@@ -91,6 +114,7 @@ class _ChartTooltipState extends State<ChartTooltip>
           widget.style.summaryLabels,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
               ),
         ),
         const SizedBox(height: 12),
@@ -111,14 +135,16 @@ class _ChartTooltipState extends State<ChartTooltip>
               : '${widget.data.minDiastolic}',
           widget.style.diastolicColor,
         ),
-        const SizedBox(height: 8),
-        if (widget.data.originalMeasurements.length > 1)
+        if (widget.data.originalMeasurements.length > 1) ...[
+          const SizedBox(height: 12),
           _buildSummaryRow(
             context,
             widget.style.averageLabels,
             '${widget.data.avgSystolic.toStringAsFixed(1)}/${widget.data.avgDiastolic.toStringAsFixed(1)}',
             null,
+            isAverage: true,
           ),
+        ],
       ],
     );
   }
@@ -127,8 +153,9 @@ class _ChartTooltipState extends State<ChartTooltip>
     BuildContext context,
     String label,
     String value,
-    Color? indicatorColor,
-  ) {
+    Color? indicatorColor, {
+    bool isAverage = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -143,11 +170,14 @@ class _ChartTooltipState extends State<ChartTooltip>
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
             ],
             Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: isAverage ? FontWeight.w500 : FontWeight.normal,
+                    color: isAverage ? Colors.grey[800] : Colors.grey[700],
+                  ),
             ),
           ],
         ),
@@ -155,6 +185,7 @@ class _ChartTooltipState extends State<ChartTooltip>
           value,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: isAverage ? Theme.of(context).primaryColor : null,
               ),
         ),
       ],
@@ -166,14 +197,23 @@ class _ChartTooltipState extends State<ChartTooltip>
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 250),
     );
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: Curves.easeInOut,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
       ),
     );
+
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+
     _animationController.forward();
   }
 
@@ -191,14 +231,14 @@ class _ChartTooltipState extends State<ChartTooltip>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _fadeAnimation,
+      animation: _animationController,
       builder: (context, child) => Opacity(
         opacity: _fadeAnimation.value,
         child: Transform.scale(
-          scale: 0.95 + (0.05 * _fadeAnimation.value),
+          scale: _scaleAnimation.value,
           child: Card(
             elevation: 8 * _fadeAnimation.value,
-            shadowColor: Colors.black26,
+            shadowColor: Colors.black38,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -208,45 +248,59 @@ class _ChartTooltipState extends State<ChartTooltip>
                 await dismiss();
               },
               child: Container(
-                width: 200,
+                width: 240,
                 constraints: BoxConstraints(
                   maxHeight: widget.screenSize.height * 0.6,
+                  maxWidth: widget.screenSize.width * 0.75,
                 ),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Material(
+                    color: Colors.white,
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: Text(
-                                _formatTimeRange(),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _formatTimeRange(),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey[850],
+                                        ),
+                                  ),
+                                ),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: dismiss,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Icon(Icons.close,
+                                          size: 16, color: Colors.grey[600]),
                                     ),
-                              ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 16),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: dismiss,
-                            ),
+                            const SizedBox(height: 12),
+                            _buildSummarySection(context),
+                            if (widget.data.originalMeasurements.isNotEmpty)
+                              _buildMeasurementsList(context),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        _buildSummarySection(context),
-                        if (widget.data.originalMeasurements.length > 1)
-                          _buildMeasurementsList(context),
-                      ],
+                      ),
                     ),
                   ),
                 ),
