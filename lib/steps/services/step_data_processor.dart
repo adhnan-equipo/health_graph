@@ -19,8 +19,9 @@ class StepDataProcessor {
       return _generateEmptyDataPoints(dateRangeType, startDate, endDate);
     }
 
-    // Group data by date based on view type
-    final groupedData = _groupDataByDate(data, dateRangeType);
+    // Group raw data by time periods based on view type
+    final groupedData =
+        _groupRawDataByPeriod(data, dateRangeType, startDate, endDate);
     List<ProcessedStepData> processedData = [];
 
     var currentDate = startDate;
@@ -29,14 +30,22 @@ class StepDataProcessor {
       final key = _getDateKey(currentDate, dateRangeType);
       final measurements = groupedData[key] ?? [];
 
+      final periodStart = _getPeriodStart(currentDate, dateRangeType);
+      final periodEnd = _getPeriodEnd(currentDate, dateRangeType);
+
       if (measurements.isEmpty) {
-        processedData.add(ProcessedStepData.empty(currentDate));
+        processedData.add(
+            ProcessedStepData.empty(periodStart, periodEnd, dateRangeType));
       } else {
-        processedData.add(_processDataGroup(measurements, currentDate));
+        processedData.add(_processRawDataGroup(
+            measurements, periodStart, periodEnd, dateRangeType));
       }
 
       currentDate = _getNextDate(currentDate, dateRangeType);
     }
+
+    // Add annotations for highest/lowest periods based on display values
+    _addAnnotations(processedData);
 
     // Handle zoom level aggregation if needed
     final effectiveMaxPoints = (maxDataPoints * zoomLevel).round();
@@ -47,47 +56,88 @@ class StepDataProcessor {
     return processedData;
   }
 
-  static ProcessedStepData _processDataGroup(
+  static ProcessedStepData _processRawDataGroup(
     List<StepData> measurements,
-    DateTime date,
+    DateTime periodStart,
+    DateTime periodEnd,
+    DateRangeType dateRangeType,
   ) {
     if (measurements.isEmpty) {
-      return ProcessedStepData.empty(date);
+      return ProcessedStepData.empty(periodStart, periodEnd, dateRangeType);
     }
 
-    // For steps, we need to SUM all values in the period, not average
-    final stepValues = measurements.map((m) => m.step).toList();
-
     // Calculate total steps for this period
-    final totalSteps = stepValues.reduce((a, b) => a + b);
+    final totalSteps =
+        measurements.fold(0, (sum, measurement) => sum + measurement.step);
 
-    // For step tracking, we typically want the total as our main value
-    // Min/Max still make sense for individual readings
+    // For individual measurements stats
+    final stepValues = measurements.map((m) => m.step).toList();
     final minSteps = stepValues.reduce(min);
     final maxSteps = stepValues.reduce(max);
+    final avgSteps = totalSteps / measurements.length;
 
     return ProcessedStepData(
-      startDate: measurements.first.createDate,
-      endDate: measurements.last.createDate,
+      startDate: periodStart,
+      endDate: periodEnd,
       minSteps: minSteps,
       maxSteps: maxSteps,
-      avgSteps: totalSteps.toDouble(),
-      // This is actually total steps now
+      avgSteps: avgSteps,
       stdDev: _calculateStdDev(stepValues.map((v) => v.toDouble()).toList()),
       dataPointCount: measurements.length,
       originalMeasurements: measurements,
-      totalSteps: totalSteps, // Add explicit total field
+      totalSteps: totalSteps,
+      viewType: dateRangeType,
     );
   }
 
-  // Rest of the methods remain the same...
-  static Map<String, List<StepData>> _groupDataByDate(
+  static void _addAnnotations(List<ProcessedStepData> data) {
+    if (data.isEmpty) return;
+
+    final nonEmptyData = data.where((d) => !d.isEmpty).toList();
+    if (nonEmptyData.isEmpty) return;
+
+    // Find highest and lowest display values (not total steps)
+    var highestData = nonEmptyData.first;
+    var lowestData = nonEmptyData.first;
+
+    for (var item in nonEmptyData) {
+      if (item.displayValue > highestData.displayValue) {
+        highestData = item;
+      }
+      if (item.displayValue < lowestData.displayValue) {
+        lowestData = item;
+      }
+    }
+
+    // Mark highest and lowest (if they're different)
+    if (highestData != lowestData && nonEmptyData.length > 2) {
+      final highestIndex = data.indexOf(highestData);
+      final lowestIndex = data.indexOf(lowestData);
+
+      if (highestIndex >= 0) {
+        data[highestIndex] = data[highestIndex].copyWith(isHighest: true);
+      }
+      if (lowestIndex >= 0) {
+        data[lowestIndex] = data[lowestIndex].copyWith(isLowest: true);
+      }
+    }
+  }
+
+  // Rest of the helper methods remain similar but updated for new period handling
+  static Map<String, List<StepData>> _groupRawDataByPeriod(
     List<StepData> data,
     DateRangeType dateRangeType,
+    DateTime startDate,
+    DateTime endDate,
   ) {
     final groupedData = <String, List<StepData>>{};
 
     for (var item in data) {
+      if (item.createDate.isBefore(startDate) ||
+          item.createDate.isAfter(endDate)) {
+        continue;
+      }
+
       final key = _getDateKey(item.createDate, dateRangeType);
       groupedData.putIfAbsent(key, () => []).add(item);
     }
@@ -104,6 +154,30 @@ class StepDataProcessor {
         return '${date.year}-${date.month}-${date.day}';
       case DateRangeType.year:
         return '${date.year}-${date.month}';
+    }
+  }
+
+  static DateTime _getPeriodStart(DateTime date, DateRangeType dateRangeType) {
+    switch (dateRangeType) {
+      case DateRangeType.day:
+        return DateTime(date.year, date.month, date.day, date.hour);
+      case DateRangeType.week:
+      case DateRangeType.month:
+        return DateTime(date.year, date.month, date.day);
+      case DateRangeType.year:
+        return DateTime(date.year, date.month, 1);
+    }
+  }
+
+  static DateTime _getPeriodEnd(DateTime date, DateRangeType dateRangeType) {
+    switch (dateRangeType) {
+      case DateRangeType.day:
+        return DateTime(date.year, date.month, date.day, date.hour, 59, 59);
+      case DateRangeType.week:
+      case DateRangeType.month:
+        return DateTime(date.year, date.month, date.day, 23, 59, 59);
+      case DateRangeType.year:
+        return DateTime(date.year, date.month + 1, 0, 23, 59, 59);
     }
   }
 
@@ -126,7 +200,6 @@ class StepDataProcessor {
     return sqrt(squaredDiffs.reduce((a, b) => a + b) / (values.length - 1));
   }
 
-  // Updated aggregation to sum steps instead of averaging
   static List<ProcessedStepData> _aggregateProcessedData(
     List<ProcessedStepData> data,
     int targetCount,
@@ -139,7 +212,8 @@ class StepDataProcessor {
       final chunk = data.sublist(i, end);
 
       if (chunk.every((d) => d.isEmpty)) {
-        result.add(ProcessedStepData.empty(chunk.first.startDate));
+        result.add(
+            ProcessedStepData.empty(chunk.first.startDate, chunk.last.endDate));
         continue;
       }
 
@@ -151,23 +225,22 @@ class StepDataProcessor {
           .toList()
         ..sort((a, b) => a.createDate.compareTo(b.createDate));
 
-      // Sum all steps in this aggregated period
       final totalStepsInPeriod =
-          validData.fold(0.0, (sum, d) => sum + d.avgSteps);
+          validData.fold(0, (sum, d) => sum + d.totalStepsInPeriod);
 
       result.add(ProcessedStepData(
         startDate: chunk.first.startDate,
         endDate: chunk.last.endDate,
         minSteps: validData.map((d) => d.minSteps).reduce(min),
         maxSteps: validData.map((d) => d.maxSteps).reduce(max),
-        avgSteps: totalStepsInPeriod,
-        // Total steps for this aggregated period
+        avgSteps: totalStepsInPeriod / validData.length,
         stdDev: _combinedStdDev(validData
             .map((d) => (d.stdDev, d.avgSteps, d.dataPointCount))
             .toList()),
         dataPointCount: validData.fold(0, (sum, d) => sum + d.dataPointCount),
         originalMeasurements: allOriginalMeasurements,
-        totalSteps: totalStepsInPeriod.round(),
+        totalSteps: totalStepsInPeriod,
+        viewType: validData.first.viewType,
       ));
     }
 
@@ -182,7 +255,6 @@ class StepDataProcessor {
 
     final combinedMean =
         values.fold(0.0, (sum, item) => sum + item.$2 * item.$3) / totalCount;
-
     final combinedVariance = values.fold(0.0, (sum, item) {
           final variance = item.$1 * item.$1;
           final meanDiffSquared = pow(item.$2 - combinedMean, 2);
@@ -203,7 +275,10 @@ class StepDataProcessor {
 
     while (currentDate.isBefore(endDate) ||
         currentDate.isAtSameMomentAs(endDate)) {
-      emptyPoints.add(ProcessedStepData.empty(currentDate));
+      final periodStart = _getPeriodStart(currentDate, dateRangeType);
+      final periodEnd = _getPeriodEnd(currentDate, dateRangeType);
+      emptyPoints
+          .add(ProcessedStepData.empty(periodStart, periodEnd, dateRangeType));
       currentDate = _getNextDate(currentDate, dateRangeType);
     }
 

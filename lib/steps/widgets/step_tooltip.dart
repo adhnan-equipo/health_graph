@@ -41,7 +41,7 @@ class _StepTooltipState extends State<StepTooltip>
 
     switch (widget.viewType) {
       case DateRangeType.day:
-        if (startDate == endDate) {
+        if (startDate.hour == endDate.hour) {
           return DateFormat('MMM d, HH:mm').format(startDate);
         }
         return '${DateFormat('MMM d, HH:mm').format(startDate)} - ${DateFormat('HH:mm').format(endDate)}';
@@ -66,137 +66,92 @@ class _StepTooltipState extends State<StepTooltip>
     }
   }
 
-  Widget _buildLatestMeasurement() {
-    final measurements = widget.data.originalMeasurements;
-
-    // For steps, show the TOTAL for this period, not just latest reading
-    final totalStepsInPeriod = widget.data.totalStepsInPeriod;
-    final periodLabel = _getPeriodLabel();
-
+  Widget _buildStepContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 16),
 
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              periodLabel, // e.g., "Daily Total", "Weekly Total"
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            if (measurements.isNotEmpty)
-              Text(
-                DateFormat('MMM d').format(widget.data.endDate),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-              ),
-          ],
-        ),
+        // Main step display
+        _buildMainStepDisplay(),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
 
-        Center(
-          child: Column(
-            children: [
-              Text(
-                '${NumberFormat('#,###').format(totalStepsInPeriod)}',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: _getCategoryColor(totalStepsInPeriod),
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.style.stepsLabel,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _getCategoryText(totalStepsInPeriod),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: _getCategoryColor(totalStepsInPeriod),
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ),
+        // Goal progress
+        _buildGoalProgress(),
 
         const SizedBox(height: 12),
 
-        _buildGoalProgress(totalStepsInPeriod),
-
-        // Show individual readings if there are multiple in this period
-        if (measurements.length > 1) _buildIndividualReadings(),
+        // Additional stats based on view type
+        _buildAdditionalStats(),
       ],
     );
   }
 
-  String _getPeriodLabel() {
-    switch (widget.viewType) {
-      case DateRangeType.day:
-        return 'Daily Total';
-      case DateRangeType.week:
-        return 'Weekly Total';
-      case DateRangeType.month:
-        return 'Monthly Total';
-      case DateRangeType.year:
-        return 'Yearly Total';
-    }
-  }
+  Widget _buildMainStepDisplay() {
+    final displayValue = widget.data.displayValue;
+    final displayLabel = widget.data.displayLabel;
 
-  Widget _buildIndividualReadings() {
-    final measurements = widget.data.originalMeasurements;
-    if (measurements.length <= 1) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(height: 16),
-        Text(
-          'Individual Readings',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 8),
-        ...measurements.take(3).map((measurement) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    DateFormat('HH:mm').format(measurement.createDate),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  Text(
-                    '${NumberFormat('#,###').format(measurement.step)} steps',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ],
-              ),
-            )),
-        if (measurements.length > 3)
+    return Center(
+      child: Column(
+        children: [
           Text(
-            '... and ${measurements.length - 3} more readings',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
+            NumberFormat('#,###').format(displayValue),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: _getCategoryColor(displayValue),
                 ),
           ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            displayLabel,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getCategoryColor(displayValue).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _getCategoryColor(displayValue).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              _getCategoryText(displayValue),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: _getCategoryColor(displayValue),
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildGoalProgress(int steps) {
-    final progress = (steps / StepRange.recommendedDaily).clamp(0.0, 1.0);
-    final isGoalMet = steps >= StepRange.recommendedDaily;
+  Widget _buildGoalProgress() {
+    final displayValue = widget.data.displayValue;
+    final progress =
+        (displayValue / StepRange.recommendedDaily).clamp(0.0, 1.0);
+    final isGoalMet = displayValue >= StepRange.recommendedDaily;
+
+    String goalText;
+    switch (widget.viewType) {
+      case DateRangeType.day:
+        goalText =
+            'Daily Goal (${NumberFormat('#,###').format(StepRange.recommendedDaily)})';
+        break;
+      case DateRangeType.week:
+      case DateRangeType.month:
+      case DateRangeType.year:
+        goalText =
+            'Daily Goal (${NumberFormat('#,###').format(StepRange.recommendedDaily)} avg/day)';
+        break;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,14 +160,14 @@ class _StepTooltipState extends State<StepTooltip>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              widget.style.goalLabel,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+              goalText,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
             ),
             Text(
               '${(progress * 100).toInt()}%',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: isGoalMet
                         ? widget.style.goalAchievedColor
                         : Colors.grey[600],
@@ -230,132 +185,221 @@ class _StepTooltipState extends State<StepTooltip>
                 ? widget.style.goalAchievedColor
                 : widget.style.goalLineColor,
           ),
+          minHeight: 6,
         ),
-        const SizedBox(height: 4),
+        if (isGoalMet) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle,
+                size: 16,
+                color: widget.style.goalAchievedColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Goal Achieved!',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: widget.style.goalAchievedColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAdditionalStats() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 16),
         Text(
-          '${NumberFormat('#,###').format(StepRange.recommendedDaily)} steps',
+          _getStatsTitle(),
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: _buildStatsRow(),
+        ),
+      ],
+    );
+  }
+
+  String _getStatsTitle() {
+    switch (widget.viewType) {
+      case DateRangeType.day:
+        return 'Daily Summary';
+      case DateRangeType.week:
+        return 'Week Summary';
+      case DateRangeType.month:
+        return 'Month Summary';
+      case DateRangeType.year:
+        return 'Year Summary';
+    }
+  }
+
+  List<Widget> _buildStatsRow() {
+    switch (widget.viewType) {
+      case DateRangeType.day:
+        return _buildDailyStats();
+      case DateRangeType.week:
+        return _buildWeeklyStats();
+      case DateRangeType.month:
+        return _buildMonthlyStats();
+      case DateRangeType.year:
+        return _buildYearlyStats();
+    }
+  }
+
+  List<Widget> _buildDailyStats() {
+    return [
+      _buildStatItem(
+        'Total Steps',
+        NumberFormat('#,###').format(widget.data.totalStepsInPeriod),
+        Icons.directions_walk,
+        _getCategoryColor(widget.data.totalStepsInPeriod),
+      ),
+      _buildStatItem(
+        'Readings',
+        widget.data.dataPointCount.toString(),
+        Icons.analytics_outlined,
+      ),
+      _buildStatItem(
+        'Activity',
+        _getCategoryText(widget.data.displayValue),
+        Icons.local_fire_department,
+        _getCategoryColor(widget.data.displayValue),
+      ),
+    ];
+  }
+
+  List<Widget> _buildWeeklyStats() {
+    final totalSteps = widget.data.totalStepsInPeriod;
+    final avgDaily = widget.data.dailyAverage.round();
+    final daysWithData = widget.data.dataPointCount;
+
+    return [
+      _buildStatItem(
+        'Total Steps',
+        NumberFormat('#,###').format(totalSteps),
+        Icons.directions_walk,
+      ),
+      _buildStatItem(
+        'Avg/Day',
+        NumberFormat('#,###').format(avgDaily),
+        Icons.show_chart,
+        _getCategoryColor(avgDaily),
+      ),
+      _buildStatItem(
+        'Active Days',
+        daysWithData.toString(),
+        Icons.calendar_today,
+      ),
+    ];
+  }
+
+  List<Widget> _buildMonthlyStats() {
+    final totalSteps = widget.data.totalStepsInPeriod;
+    final avgDaily = widget.data.dailyAverage.round();
+    final daysWithData = widget.data.dataPointCount;
+
+    return [
+      _buildStatItem(
+        'Total Steps',
+        NumberFormat('#,###').format(totalSteps),
+        Icons.directions_walk,
+      ),
+      _buildStatItem(
+        'Avg/Day',
+        NumberFormat('#,###').format(avgDaily),
+        Icons.show_chart,
+        _getCategoryColor(avgDaily),
+      ),
+      _buildStatItem(
+        'Active Days',
+        daysWithData.toString(),
+        Icons.calendar_today,
+      ),
+    ];
+  }
+
+  List<Widget> _buildYearlyStats() {
+    final totalSteps = widget.data.totalStepsInPeriod;
+    final avgDaily = widget.data.dailyAverage.round();
+    final daysInPeriod =
+        widget.data.endDate.difference(widget.data.startDate).inDays + 1;
+
+    return [
+      _buildStatItem(
+        'Total Steps',
+        NumberFormat('#,###').format(totalSteps),
+        Icons.directions_walk,
+      ),
+      _buildStatItem(
+        'Avg/Day',
+        NumberFormat('#,###').format(avgDaily),
+        Icons.show_chart,
+        _getCategoryColor(avgDaily),
+      ),
+      _buildStatItem(
+        'Days',
+        daysInPeriod.toString(),
+        Icons.calendar_month,
+      ),
+    ];
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon,
+      [Color? color]) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          size: 24,
+          color: color ?? Colors.grey[600],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color ?? Colors.grey[800],
+              ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Colors.grey[600],
               ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
   Color _getCategoryColor(int steps) {
-    if (steps <= 4999) return widget.style.sedentaryColor;
-    if (steps <= 7499) return widget.style.lightActiveColor;
-    if (steps <= 9999) return widget.style.fairlyActiveColor;
-    if (steps <= 12499) return widget.style.veryActiveColor;
+    if (steps <= StepRange.sedentaryMax) return widget.style.sedentaryColor;
+    if (steps <= StepRange.lightActiveMax) return widget.style.lightActiveColor;
+    if (steps <= StepRange.fairlyActiveMax)
+      return widget.style.fairlyActiveColor;
+    if (steps <= StepRange.veryActiveMax) return widget.style.veryActiveColor;
     return widget.style.highlyActiveColor;
   }
 
   String _getCategoryText(int steps) {
-    if (steps <= 4999) return widget.style.sedentaryLabel;
-    if (steps <= 7499) return widget.style.lightActiveLabel;
-    if (steps <= 9999) return widget.style.fairlyActiveLabel;
-    if (steps <= 12499) return widget.style.veryActiveLabel;
+    if (steps <= StepRange.sedentaryMax) return widget.style.sedentaryLabel;
+    if (steps <= StepRange.lightActiveMax) return widget.style.lightActiveLabel;
+    if (steps <= StepRange.fairlyActiveMax)
+      return widget.style.fairlyActiveLabel;
+    if (steps <= StepRange.veryActiveMax) return widget.style.veryActiveLabel;
     return widget.style.highlyActiveLabel;
-  }
-
-  Widget _buildHistoryInfo() {
-    if (widget.data.dataPointCount <= 1) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Divider(height: 8),
-        Text(
-          'Summary',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildHistoryStat(
-              'Readings',
-              widget.data.dataPointCount.toString(),
-              Icons.analytics_outlined,
-            ),
-            _buildHistoryStat(
-              'Average',
-              NumberFormat('#,###').format(widget.data.avgSteps.round()),
-              Icons.show_chart,
-              _getCategoryColor(widget.data.avgSteps.round()),
-            ),
-            _buildHistoryStat(
-              'Change',
-              _calculateChange(),
-              _getChangeIcon(),
-              _getChangeColor(),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHistoryStat(String label, String value, IconData icon,
-      [Color? color]) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          size: 20,
-          color: color ?? Colors.grey[700],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall,
-        ),
-      ],
-    );
-  }
-
-  String _calculateChange() {
-    if (widget.data.originalMeasurements.length < 2) return "0";
-
-    final latest = widget.data.originalMeasurements.last.step;
-    final first = widget.data.originalMeasurements.first.step;
-    final change = latest - first;
-
-    final sign = change > 0 ? '+' : '';
-    return '$sign${NumberFormat('#,###').format(change)}';
-  }
-
-  IconData _getChangeIcon() {
-    if (widget.data.originalMeasurements.length < 2)
-      return Icons.horizontal_rule;
-
-    final latest = widget.data.originalMeasurements.last.step;
-    final first = widget.data.originalMeasurements.first.step;
-    final change = latest - first;
-
-    if (change > 500) return Icons.arrow_upward;
-    if (change < -500) return Icons.arrow_downward;
-    return Icons.horizontal_rule;
-  }
-
-  Color _getChangeColor() {
-    if (widget.data.originalMeasurements.length < 2) return Colors.grey;
-
-    final latest = widget.data.originalMeasurements.last.step;
-    final first = widget.data.originalMeasurements.first.step;
-    final change = latest - first;
-
-    // More steps is generally better
-    return change > 0 ? Colors.green : Colors.red;
   }
 
   @override
@@ -403,7 +447,7 @@ class _StepTooltipState extends State<StepTooltip>
         child: Transform.scale(
           scale: _scaleAnimation.value,
           child: Card(
-            elevation: 8 * _fadeAnimation.value,
+            elevation: 12 * _fadeAnimation.value,
             shadowColor: Colors.black26,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -414,42 +458,73 @@ class _StepTooltipState extends State<StepTooltip>
                 dismiss();
               },
               child: Container(
-                width: 280,
+                width: 320,
                 constraints: BoxConstraints(
-                  maxHeight: widget.screenSize.height * 0.6,
+                  maxHeight: widget.screenSize.height * 0.5,
+                  minWidth: 280,
                 ),
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Header with close button
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: Text(
-                                _formatTimeRange(),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.bold,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _formatTimeRange(),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  if (widget.data.hasAnnotation)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: widget.style.highlightColor,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        widget.data.annotationText,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
                                     ),
+                                ],
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close, size: 18),
+                              icon: const Icon(Icons.close, size: 20),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: dismiss,
+                              color: Colors.grey[600],
                             ),
                           ],
                         ),
-                        _buildLatestMeasurement(),
-                        _buildHistoryInfo(),
+
+                        // Main content
+                        _buildStepContent(),
                       ],
                     ),
                   ),
