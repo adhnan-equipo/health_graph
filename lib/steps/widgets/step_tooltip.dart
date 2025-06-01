@@ -91,53 +91,174 @@ class _StepTooltipState extends State<StepTooltip>
   Widget _buildMainStepDisplay() {
     final displayValue = widget.data.displayValue;
     final displayLabel = widget.data.displayLabel;
+    final isLowValue = displayValue < 1000;
 
     return Center(
       child: Column(
         children: [
-          Text(
-            NumberFormat('#,###').format(displayValue),
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: _getCategoryColor(displayValue),
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            displayLabel,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-          ),
-          const SizedBox(height: 8),
+          // Enhanced number display for low values
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: EdgeInsets.symmetric(
+              horizontal: isLowValue ? 16 : 12,
+              vertical: isLowValue ? 8 : 6,
+            ),
             decoration: BoxDecoration(
               color: _getCategoryColor(displayValue).withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _getCategoryColor(displayValue).withOpacity(0.3),
-                width: 1,
+                width: isLowValue ? 2 : 1,
               ),
             ),
             child: Text(
-              _getCategoryText(displayValue),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              NumberFormat('#,###').format(displayValue),
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                     color: _getCategoryColor(displayValue),
-                    fontWeight: FontWeight.w600,
+                    fontSize:
+                        isLowValue ? 32 : 28, // Larger font for low values
                   ),
             ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            displayLabel,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 12),
+
+          // Enhanced category badge for low values
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: isLowValue ? 16 : 12,
+              vertical: isLowValue ? 6 : 4,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  _getCategoryColor(displayValue).withOpacity(0.1),
+                  _getCategoryColor(displayValue).withOpacity(0.2),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: _getCategoryColor(displayValue).withOpacity(0.4),
+                width: isLowValue ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _getCategoryIcon(displayValue),
+                  size: isLowValue ? 18 : 16,
+                  color: _getCategoryColor(displayValue),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _getCategoryText(displayValue),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: _getCategoryColor(displayValue),
+                        fontWeight: FontWeight.w700,
+                        fontSize: isLowValue ? 13 : 12,
+                      ),
+                ),
+              ],
+            ),
+          ),
+
+          // Progress indicator for low values
+          if (isLowValue) ...[
+            const SizedBox(height: 12),
+            _buildLowValueProgressIndicator(displayValue),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLowValueProgressIndicator(int steps) {
+    final nextMilestone = _getNextMilestone(steps);
+    final progress = steps / nextMilestone;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.blue.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Next milestone: ${NumberFormat('#,###').format(nextMilestone)}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[700],
+                    ),
+              ),
+              Text(
+                '${(progress * 100).toInt()}%',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[700],
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.blue.withOpacity(0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            minHeight: 6,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${NumberFormat('#,###').format(nextMilestone - steps)} steps to go!',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.blue[600],
+                  fontWeight: FontWeight.w500,
+                ),
           ),
         ],
       ),
     );
   }
 
+  int _getNextMilestone(int currentSteps) {
+    final milestones = [100, 250, 500, 1000, 2500, 5000, 7500, 10000];
+    return milestones.firstWhere(
+      (milestone) => milestone > currentSteps,
+      orElse: () => ((currentSteps / 1000).ceil() + 1) * 1000,
+    );
+  }
+
+  IconData _getCategoryIcon(int steps) {
+    if (steps <= StepRange.sedentaryMax)
+      return Icons.airline_seat_individual_suite;
+    if (steps <= StepRange.lightActiveMax) return Icons.directions_walk;
+    if (steps <= StepRange.fairlyActiveMax) return Icons.directions_run;
+    if (steps <= StepRange.veryActiveMax) return Icons.fitness_center;
+    return Icons.local_fire_department;
+  }
+
+// Enhanced goal progress for low values
   Widget _buildGoalProgress() {
     final displayValue = widget.data.displayValue;
     final progress =
         (displayValue / StepRange.recommendedDaily).clamp(0.0, 1.0);
     final isGoalMet = displayValue >= StepRange.recommendedDaily;
+    final isLowValue = displayValue < 1000;
 
     String goalText;
     switch (widget.viewType) {
@@ -153,61 +274,138 @@ class _StepTooltipState extends State<StepTooltip>
         break;
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              goalText,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            Text(
-              '${(progress * 100).toInt()}%',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: isGoalMet
-                        ? widget.style.goalAchievedColor
-                        : Colors.grey[600],
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
+    return Container(
+      padding: EdgeInsets.all(isLowValue ? 16 : 12),
+      decoration: BoxDecoration(
+        color: isGoalMet
+            ? widget.style.goalAchievedColor.withOpacity(0.1)
+            : (isLowValue
+                ? Colors.orange.withOpacity(0.08)
+                : Colors.grey.withOpacity(0.05)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isGoalMet
+              ? widget.style.goalAchievedColor.withOpacity(0.3)
+              : (isLowValue
+                  ? Colors.orange.withOpacity(0.3)
+                  : Colors.grey.withOpacity(0.2)),
+          width: isLowValue ? 1.5 : 1,
         ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: Colors.grey[300],
-          valueColor: AlwaysStoppedAnimation<Color>(
-            isGoalMet
-                ? widget.style.goalAchievedColor
-                : widget.style.goalLineColor,
-          ),
-          minHeight: 6,
-        ),
-        if (isGoalMet) ...[
-          const SizedBox(height: 8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                Icons.check_circle,
-                size: 16,
-                color: widget.style.goalAchievedColor,
+              Expanded(
+                child: Text(
+                  goalText,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isLowValue ? 13 : 12,
+                      ),
+                ),
               ),
-              const SizedBox(width: 4),
-              Text(
-                'Goal Achieved!',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: widget.style.goalAchievedColor,
-                      fontWeight: FontWeight.w600,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isGoalMet
+                      ? widget.style.goalAchievedColor.withOpacity(0.2)
+                      : (isLowValue
+                          ? Colors.orange.withOpacity(0.2)
+                          : Colors.grey.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${(progress * 100).toInt()}%',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: isGoalMet
+                            ? widget.style.goalAchievedColor
+                            : (isLowValue
+                                ? Colors.orange[700]
+                                : Colors.grey[600]),
+                        fontWeight: FontWeight.bold,
+                        fontSize: isLowValue ? 12 : 11,
+                      ),
+                ),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+
+          // Enhanced progress bar for low values
+          Container(
+            height: isLowValue ? 8 : 6,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(isLowValue ? 4 : 3),
+              color: Colors.grey[300],
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: progress,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(isLowValue ? 4 : 3),
+                  gradient: LinearGradient(
+                    colors: isGoalMet
+                        ? [
+                            widget.style.goalAchievedColor.withOpacity(0.7),
+                            widget.style.goalAchievedColor
+                          ]
+                        : (isLowValue
+                            ? [Colors.orange.withOpacity(0.7), Colors.orange]
+                            : [
+                                widget.style.goalLineColor.withOpacity(0.7),
+                                widget.style.goalLineColor
+                              ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          if (isGoalMet) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  size: 18,
+                  color: widget.style.goalAchievedColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Goal Achieved! 🎉',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: widget.style.goalAchievedColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
+          ] else if (isLowValue) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.trending_up,
+                  size: 16,
+                  color: Colors.orange[600],
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Keep going! Every step counts! 💪',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.orange[600],
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 

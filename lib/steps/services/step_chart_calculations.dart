@@ -7,12 +7,16 @@ import '../models/processed_step_data.dart';
 import '../models/step_range.dart';
 
 class StepChartCalculations {
-  static const double _minPaddingPercent = 0.1; // 10% padding
-  static const double _maxPaddingPercent = 0.2; // 20% padding
+  static const double _minPaddingPercent = 0.15; // 15% padding minimum
+  static const double _maxPaddingPercent = 0.25; // 25% padding maximum
   static const double _hitTestThreshold = 20.0;
 
-  /// Calculate Y-axis range with dynamic scaling
-  /// If max step count is 1000, graph top will be around 1200 (20% padding)
+  // Enhanced scaling thresholds for low values
+  static const int _veryLowThreshold = 500; // < 500 steps
+  static const int _lowThreshold = 2000; // < 2000 steps
+  static const int _mediumThreshold = 8000; // < 8000 steps
+
+  /// Enhanced Y-axis range calculation with intelligent scaling for low values
   static (List<int>, double, double) calculateYAxisRange(
     List<ProcessedStepData> data,
     List<(int min, int max)> referenceRanges,
@@ -21,9 +25,8 @@ class StepChartCalculations {
       return _getDefaultRange();
     }
 
-    // Extract display values (daily averages for week/month/year, totals for day)
+    // Extract display values from actual data
     final actualValues = <int>[];
-
     for (var point in data.where((d) => !d.isEmpty)) {
       actualValues.add(point.displayValue);
     }
@@ -33,48 +36,158 @@ class StepChartCalculations {
       actualValues.addAll([range.$1, range.$2]);
     }
 
-    // Ensure we have meaningful reference points
-    if (actualValues.isEmpty) {
-      // Add basic step thresholds for context
-      actualValues.addAll([
-        0,
-        StepRange.minimumHealthBenefit,
-        StepRange.recommendedDaily,
-      ]);
-    }
-
     final validValues = actualValues.where((v) => v >= 0).toList();
     if (validValues.isEmpty) {
-      return _getDefaultRange();
+      return _getSmartDefaultRange();
     }
 
-    // Calculate dynamic min/max
-    var minValue = validValues.reduce(min);
+    var minValue = 0; // Always start at 0 for step counts
     var maxValue = validValues.reduce(max);
 
-    // Ensure minimum value starts at 0 for step counts
-    minValue = 0;
+    // **CORE ENHANCEMENT**: Smart scaling based on data magnitude
+    final scalingStrategy = _determineScalingStrategy(maxValue);
+    final adjustedRange =
+        _applySmartScaling(minValue, maxValue, scalingStrategy);
 
-    // Dynamic scaling: Add 20% padding to max value
-    // If max is 1000, it becomes 1200
-    final range = maxValue - minValue;
-    final topPadding = (range * _maxPaddingPercent).round();
+    minValue = adjustedRange.min;
+    maxValue = adjustedRange.max;
 
-    // Ensure minimum meaningful range
-    maxValue = max(maxValue + topPadding, StepRange.recommendedDaily);
-
-    // If range is very small, add minimum padding
-    if (maxValue - minValue < 2000) {
-      maxValue = minValue + 2000;
-    }
-
-    // Calculate optimal step size
-    final stepSize = _calculateOptimalStepSize(minValue, maxValue);
-    final yAxisValues = _generateAxisValues(minValue, maxValue, stepSize);
+    // Calculate optimal step size for the scaled range
+    final stepSize =
+        _calculateSmartStepSize(minValue, maxValue, scalingStrategy);
+    final yAxisValues = _generateSmartAxisValues(minValue, maxValue, stepSize);
 
     return (yAxisValues, minValue.toDouble(), maxValue.toDouble());
   }
 
+  /// Determine appropriate scaling strategy based on data magnitude
+  static _ScalingStrategy _determineScalingStrategy(int maxValue) {
+    if (maxValue <= _veryLowThreshold) {
+      return _ScalingStrategy.veryLow;
+    } else if (maxValue <= _lowThreshold) {
+      return _ScalingStrategy.low;
+    } else if (maxValue <= _mediumThreshold) {
+      return _ScalingStrategy.medium;
+    } else {
+      return _ScalingStrategy.high;
+    }
+  }
+
+  /// Apply intelligent scaling with appropriate buffering
+  static ({int min, int max}) _applySmartScaling(
+      int minValue, int maxValue, _ScalingStrategy strategy) {
+    switch (strategy) {
+      case _ScalingStrategy.veryLow:
+        // For very low values (< 500), use generous padding and meaningful increments
+        final buffer = max(maxValue * 0.4, 50); // At least 50 step buffer
+        final adjustedMax =
+            ((maxValue + buffer) / 50).ceil() * 50; // Round to 50s
+        return (min: 0, max: max(adjustedMax, 200)); // Minimum range of 200
+
+      case _ScalingStrategy.low:
+        // For low values (500-2000), use moderate padding
+        final buffer = max(maxValue * 0.3, 100); // At least 100 step buffer
+        final adjustedMax =
+            ((maxValue + buffer) / 100).ceil() * 100; // Round to 100s
+        return (min: 0, max: max(adjustedMax, 500));
+
+      case _ScalingStrategy.medium:
+        // For medium values (2000-8000), standard padding
+        final buffer = maxValue * 0.25;
+        final adjustedMax =
+            ((maxValue + buffer) / 500).ceil() * 500; // Round to 500s
+        return (min: 0, max: adjustedMax);
+
+      case _ScalingStrategy.high:
+        // For high values (> 8000), minimal padding but ensure goal visibility
+        final buffer = maxValue * 0.2;
+        final adjustedMax =
+            ((maxValue + buffer) / 1000).ceil() * 1000; // Round to 1000s
+        final goalAwareMax =
+            max(adjustedMax, StepRange.recommendedDaily + 2000);
+        return (min: 0, max: goalAwareMax);
+    }
+  }
+
+  /// Smart step size calculation based on scaling strategy
+  static int _calculateSmartStepSize(
+      int min, int max, _ScalingStrategy strategy) {
+    final range = max - min;
+
+    switch (strategy) {
+      case _ScalingStrategy.veryLow:
+        // For very low values, use small increments for better granularity
+        if (range <= 200) return 25;
+        if (range <= 500) return 50;
+        return 100;
+
+      case _ScalingStrategy.low:
+        // For low values, balance granularity with readability
+        if (range <= 500) return 50;
+        if (range <= 1000) return 100;
+        return 250;
+
+      case _ScalingStrategy.medium:
+        // Standard increments for medium values
+        if (range <= 2000) return 250;
+        if (range <= 5000) return 500;
+        return 1000;
+
+      case _ScalingStrategy.high:
+        // Larger increments for high values
+        if (range <= 10000) return 1000;
+        if (range <= 25000) return 2500;
+        return 5000;
+    }
+  }
+
+  /// Generate axis values with smart distribution
+  static List<int> _generateSmartAxisValues(int min, int max, int step) {
+    final values = <int>[];
+    int currentValue = 0; // Always start at 0
+
+    // Generate primary values
+    while (currentValue <= max && values.length < 8) {
+      values.add(currentValue);
+      currentValue += step;
+    }
+
+    // Ensure we always include key reference points for context
+    _addKeyReferencePoints(values, max);
+
+    return values..sort();
+  }
+
+  /// Add important reference points (like goal line) to axis values
+  static void _addKeyReferencePoints(List<int> values, int maxValue) {
+    // Always include goal line for context, even if data is much lower
+    if (!values.contains(StepRange.recommendedDaily) &&
+        StepRange.recommendedDaily <= maxValue * 1.5) {
+      values.add(StepRange.recommendedDaily);
+    }
+
+    // Add minimum health benefit threshold if relevant
+    if (!values.contains(StepRange.minimumHealthBenefit) &&
+        StepRange.minimumHealthBenefit <= maxValue * 1.2) {
+      values.add(StepRange.minimumHealthBenefit);
+    }
+  }
+
+  /// Smart default range for very low or empty data
+  static (List<int>, double, double) _getSmartDefaultRange() {
+    // Default range optimized for low values
+    const defaultMax = 500;
+    const step = 50;
+    final values = [0, 50, 100, 150, 200, 250, 300, 400, 500];
+    return (values, 0.0, defaultMax.toDouble());
+  }
+
+  /// Legacy default range (kept for compatibility)
+  static (List<int>, double, double) _getDefaultRange() {
+    return _getSmartDefaultRange();
+  }
+
+  /// Enhanced position calculation with better precision for low values
   static double calculateYPosition(
     double value,
     Rect chartArea,
@@ -82,88 +195,18 @@ class StepChartCalculations {
     double maxValue,
   ) {
     if (value.isNaN || !value.isFinite || maxValue <= minValue) {
-      return chartArea.center.dy;
+      return chartArea.bottom;
     }
 
+    // Enhanced precision for low value ranges
     final normalizedPosition = (value - minValue) / (maxValue - minValue);
-    return chartArea.bottom - normalizedPosition * chartArea.height;
+    final position = chartArea.bottom - normalizedPosition * chartArea.height;
+
+    // Ensure minimum visual separation for very close values
+    return position.clamp(chartArea.top, chartArea.bottom);
   }
 
-  /// Calculate optimal step size for readable labels
-  /// Adapts to the data range dynamically
-  static int _calculateOptimalStepSize(int min, int max) {
-    final range = max - min;
-    final targetSteps = 5; // Target 5 grid lines
-    final rawStep = range / targetSteps;
-
-    // Use "nice" numbers for step sizes based on range
-    if (rawStep <= 100) return 100;
-    if (rawStep <= 250) return 250;
-    if (rawStep <= 500) return 500;
-    if (rawStep <= 1000) return 1000;
-    if (rawStep <= 2500) return 2500;
-    if (rawStep <= 5000) return 5000;
-    if (rawStep <= 10000) return 10000;
-
-    // For very large ranges, use multiples of 5000
-    return ((rawStep + 2499) ~/ 2500) * 2500;
-  }
-
-  /// Generate evenly spaced axis values with dynamic scaling
-  static List<int> _generateAxisValues(int min, int max, int step) {
-    final values = <int>[];
-
-    // Always start at 0 for step counts
-    int currentValue = 0;
-
-    while (currentValue <= max && values.length < 6) {
-      if (currentValue >= min) {
-        values.add(currentValue);
-      }
-      currentValue += step;
-    }
-
-    // Ensure we have at least the max value if it's reasonable
-    if (values.length < 6 && !values.contains(max) && max > values.last) {
-      values.add(max);
-    }
-
-    return values;
-  }
-
-  /// Default range for empty data
-  static (List<int>, double, double) _getDefaultRange() {
-    const defaultMin = 0;
-    const defaultMax = 12000; // Cover typical daily range plus padding
-    const step = 2000;
-    final values = _generateAxisValues(defaultMin, defaultMax, step);
-    return (values, defaultMin.toDouble(), defaultMax.toDouble());
-  }
-
-  // Format Y-axis labels for step counts
-  static String formatAxisLabel(int value) {
-    if (value >= 1000000) {
-      return '${(value / 1000000).toStringAsFixed(value % 1000000 == 0 ? 0 : 1)}M';
-    } else if (value >= 1000) {
-      return '${(value / 1000).toStringAsFixed(value % 1000 == 0 ? 0 : 1)}K';
-    }
-    return value.toString();
-  }
-
-  static Rect calculateChartArea(Size size) {
-    const leftPadding = 50.0; // Space for step count labels
-    const rightPadding = 15.0;
-    const topPadding = 20.0;
-    const bottomPadding = 45.0; // Space for date labels
-
-    return Rect.fromLTRB(
-      leftPadding,
-      topPadding,
-      size.width - rightPadding,
-      size.height - bottomPadding,
-    );
-  }
-
+  // Enhanced hit testing for better interaction with low values
   static ProcessedStepData? findDataPoint(
     Offset position,
     Rect chartArea,
@@ -178,6 +221,9 @@ class StepChartCalculations {
         ? (availableWidth - (barPadding * (data.length - 1))) / data.length
         : availableWidth * 0.6;
 
+    // Enhanced hit testing with adaptive threshold
+    final adaptiveThreshold = max(_hitTestThreshold, barWidth * 0.6);
+
     int closestIndex = -1;
     double minDistance = double.infinity;
 
@@ -188,7 +234,7 @@ class StepChartCalculations {
           (barWidth / 2);
       final distance = (position.dx - x).abs();
 
-      if (distance < minDistance && distance <= _hitTestThreshold) {
+      if (distance < minDistance && distance <= adaptiveThreshold) {
         minDistance = distance;
         closestIndex = i;
       }
@@ -199,6 +245,30 @@ class StepChartCalculations {
     }
 
     return null;
+  }
+
+  // Rest of the existing methods remain unchanged...
+  static String formatAxisLabel(int value) {
+    if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(value % 1000000 == 0 ? 0 : 1)}M';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(value % 1000 == 0 ? 0 : 1)}K';
+    }
+    return value.toString();
+  }
+
+  static Rect calculateChartArea(Size size) {
+    const leftPadding = 60.0; // Increased for better label space
+    const rightPadding = 15.0;
+    const topPadding = 25.0; // Increased for goal line space
+    const bottomPadding = 45.0;
+
+    return Rect.fromLTRB(
+      leftPadding,
+      topPadding,
+      size.width - rightPadding,
+      size.height - bottomPadding,
+    );
   }
 
   static bool _isWithinChartArea(Offset position, Rect chartArea,
@@ -221,13 +291,11 @@ class StepChartCalculations {
     double x = tapPosition.dx - (tooltipSize.width / 2);
     double y = tapPosition.dy - tooltipSize.height - 10;
 
-    // Adjust for screen edges
     x = x.clamp(
       padding.left + 8,
       screenSize.width - tooltipSize.width - padding.right - 8,
     );
 
-    // If tooltip would go off the top, position below tap point
     if (y < padding.top + 8) {
       y = tapPosition.dy + 10;
     }
@@ -239,4 +307,12 @@ class StepChartCalculations {
 
     return Offset(x, y);
   }
+}
+
+/// Internal enum for scaling strategies
+enum _ScalingStrategy {
+  veryLow, // < 500 steps
+  low, // 500-2000 steps
+  medium, // 2000-8000 steps
+  high, // > 8000 steps
 }
