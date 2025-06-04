@@ -36,10 +36,12 @@ class _SleepTooltipState extends State<SleepTooltip>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  late Map<String, String> _textMap;
 
   @override
   void initState() {
     super.initState();
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -130,7 +132,7 @@ class _SleepTooltipState extends State<SleepTooltip>
 
   Widget _buildMainSleepDisplay() {
     final displayValue = widget.data.displayValue;
-    final displayLabel = widget.data.displayLabel;
+    final displayLabel = _getDisplayLabel();
     final quality = widget.data.quality;
     final qualityColor = widget.style.getSleepQualityColor(quality);
 
@@ -198,7 +200,7 @@ class _SleepTooltipState extends State<SleepTooltip>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  quality.label,
+                  _getSleepQualityLabel(quality),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: qualityColor,
                         fontWeight: FontWeight.w700,
@@ -239,7 +241,7 @@ class _SleepTooltipState extends State<SleepTooltip>
               ),
               const SizedBox(width: 8),
               Text(
-                'Sleep Stages',
+                widget.style.sleepStagesTitle,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: widget.style.primaryColor,
@@ -296,7 +298,7 @@ class _SleepTooltipState extends State<SleepTooltip>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      stage.label,
+                      _getSleepStageLabel(stage),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -328,14 +330,12 @@ class _SleepTooltipState extends State<SleepTooltip>
     String recommendationText;
     switch (widget.viewType) {
       case DateRangeType.day:
-        recommendationText =
-            'Recommended: ${_formatDuration(SleepRange.recommendedMin)}-${_formatDuration(SleepRange.recommendedMax)}';
+        recommendationText = widget.style.recommendedRangeDaily;
         break;
       case DateRangeType.week:
       case DateRangeType.month:
       case DateRangeType.year:
-        recommendationText =
-            'Recommended: ${_formatDuration(SleepRange.recommendedMin)}-${_formatDuration(SleepRange.recommendedMax)} avg/night';
+        recommendationText = widget.style.recommendedRangeAverage;
         break;
     }
 
@@ -423,7 +423,7 @@ class _SleepTooltipState extends State<SleepTooltip>
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Great sleep! Within recommended range 🌙',
+                    widget.style.goalAchievedMessage,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: widget.style.recommendationLineColor,
                           fontWeight: FontWeight.w700,
@@ -459,7 +459,7 @@ class _SleepTooltipState extends State<SleepTooltip>
           // Sleep quality description
           const SizedBox(height: 8),
           Text(
-            quality.description,
+            _getSleepQualityDescription(quality),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Colors.grey[600],
                   fontStyle: FontStyle.italic,
@@ -493,7 +493,7 @@ class _SleepTooltipState extends State<SleepTooltip>
               ),
               const SizedBox(width: 8),
               Text(
-                'Sleep Pattern',
+                widget.style.sleepPatternTitle,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.blue[700],
@@ -507,19 +507,19 @@ class _SleepTooltipState extends State<SleepTooltip>
             children: [
               if (widget.data.averageBedTime != null)
                 _buildTimingItem(
-                  'Bedtime',
+                  widget.style.bedtimeLabel,
                   DateFormat('HH:mm').format(widget.data.averageBedTime!),
                   Icons.bedtime,
                 ),
               if (widget.data.averageWakeTime != null)
                 _buildTimingItem(
-                  'Wake Time',
+                  widget.style.wakeTimeLabel,
                   DateFormat('HH:mm').format(widget.data.averageWakeTime!),
                   Icons.wb_sunny,
                 ),
               if (widget.data.averageEfficiency != null)
                 _buildTimingItem(
-                  'Efficiency',
+                  widget.style.efficiencyLabel,
                   '${widget.data.averageEfficiency!.toInt()}%',
                   Icons.trending_up,
                 ),
@@ -592,13 +592,24 @@ class _SleepTooltipState extends State<SleepTooltip>
   String _getStatsTitle() {
     switch (widget.viewType) {
       case DateRangeType.day:
-        return 'Sleep Summary';
+        return widget.style.sleepSummaryTitle;
       case DateRangeType.week:
-        return 'Week Summary';
+        return widget.style.weekSummaryTitle;
       case DateRangeType.month:
-        return 'Month Summary';
+        return widget.style.monthSummaryTitle;
       case DateRangeType.year:
-        return 'Year Summary';
+        return widget.style.yearSummaryTitle;
+    }
+  }
+
+  String _getDisplayLabel() {
+    switch (widget.viewType) {
+      case DateRangeType.day:
+        return widget.style.totalSleepLabel;
+      case DateRangeType.week:
+      case DateRangeType.month:
+      case DateRangeType.year:
+        return widget.style.avgPerNightLabel;
     }
   }
 
@@ -616,19 +627,19 @@ class _SleepTooltipState extends State<SleepTooltip>
   List<Widget> _buildDailyStats() {
     return [
       _buildStatItem(
-        'Total Sleep',
+        widget.style.totalSleepLabel,
         widget.data.formattedDuration,
         Icons.bedtime,
         widget.style.getSleepQualityColor(widget.data.quality),
       ),
       _buildStatItem(
-        'Recordings',
+        widget.style.recordingsLabel,
         widget.data.dataPointCount.toString(),
         Icons.analytics_outlined,
       ),
       _buildStatItem(
-        'Quality',
-        widget.data.quality.label.split(' ').first, // Take first word
+        widget.style.qualityLabel,
+        _getSleepQualityLabel(widget.data.quality).split(' ').first,
         Icons.star,
         widget.style.getSleepQualityColor(widget.data.quality),
       ),
@@ -642,18 +653,18 @@ class _SleepTooltipState extends State<SleepTooltip>
 
     return [
       _buildStatItem(
-        'Total Sleep',
+        widget.style.totalSleepLabel,
         _formatDuration(totalSleep),
         Icons.bedtime,
       ),
       _buildStatItem(
-        'Avg/Night',
+        widget.style.avgPerNightLabel,
         _formatDuration(avgDaily),
         Icons.show_chart,
         widget.style.getSleepQualityColor(widget.data.quality),
       ),
       _buildStatItem(
-        'Sleep Days',
+        widget.style.sleepDaysLabel,
         daysWithData.toString(),
         Icons.calendar_today,
       ),
@@ -687,6 +698,73 @@ class _SleepTooltipState extends State<SleepTooltip>
         ),
       ],
     );
+  }
+
+  // Helper methods for localized text
+  String _getSleepQualityLabel(SleepQuality quality) {
+    switch (quality) {
+      case SleepQuality.poor:
+        return widget.style.poorSleepLabel;
+      case SleepQuality.insufficient:
+        return widget.style.insufficientSleepLabel;
+      case SleepQuality.adequate:
+        return widget.style.adequateSleepLabel;
+      case SleepQuality.good:
+        return widget.style.goodSleepLabel;
+      case SleepQuality.excellent:
+        return widget.style.excellentSleepLabel;
+      case SleepQuality.excessive:
+        return widget.style.excessiveSleepLabel;
+    }
+  }
+
+  String _getSleepQualityDescription(SleepQuality quality) {
+    switch (quality) {
+      case SleepQuality.poor:
+        return widget.style.poorSleepDescription;
+      case SleepQuality.insufficient:
+        return widget.style.insufficientSleepDescription;
+      case SleepQuality.adequate:
+        return widget.style.adequateSleepDescription;
+      case SleepQuality.good:
+        return widget.style.goodSleepDescription;
+      case SleepQuality.excellent:
+        return widget.style.excellentSleepDescription;
+      case SleepQuality.excessive:
+        return widget.style.excessiveSleepDescription;
+    }
+  }
+
+  String _getSleepAdvice(SleepQuality quality) {
+    switch (quality) {
+      case SleepQuality.poor:
+        return widget.style.poorSleepAdvice;
+      case SleepQuality.insufficient:
+        return widget.style.insufficientSleepAdvice;
+      case SleepQuality.adequate:
+        return widget.style.adequateSleepAdvice;
+      case SleepQuality.excessive:
+        return widget.style.excessiveSleepAdvice;
+      default:
+        return widget.style.defaultSleepAdvice;
+    }
+  }
+
+  String _getSleepStageLabel(SleepStage stage) {
+    switch (stage) {
+      case SleepStage.deep:
+        return widget.style.deepSleepLabel;
+      case SleepStage.rem:
+        return widget.style.remSleepLabel;
+      case SleepStage.light:
+        return widget.style.lightSleepLabel;
+      case SleepStage.awake:
+        return widget.style.awakeSleepLabel;
+      case SleepStage.awakeInBed:
+        return widget.style.awakeInBedLabel;
+      case SleepStage.unknown:
+        return widget.style.unknownSleepLabel;
+    }
   }
 
   // Helper methods
@@ -726,21 +804,6 @@ class _SleepTooltipState extends State<SleepTooltip>
         return Icons.trending_down;
       default:
         return Icons.info_outline;
-    }
-  }
-
-  String _getSleepAdvice(quality) {
-    switch (quality) {
-      case SleepQuality.poor:
-        return 'Try to get more sleep tonight 💤';
-      case SleepQuality.insufficient:
-        return 'Aim for a bit more sleep 🌙';
-      case SleepQuality.adequate:
-        return 'Close to optimal - keep it up! ⭐';
-      case SleepQuality.excessive:
-        return 'Consider a slightly shorter sleep 🌅';
-      default:
-        return 'Maintain your sleep routine 😴';
     }
   }
 
@@ -818,7 +881,9 @@ class _SleepTooltipState extends State<SleepTooltip>
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        widget.data.annotationText,
+                                        widget.data.isHighest
+                                            ? widget.style.bestSleepAnnotation
+                                            : widget.style.leastSleepAnnotation,
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelSmall

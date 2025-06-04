@@ -65,21 +65,67 @@ class StepChartStyle {
   final Curve animationCurve;
   final bool enableHapticFeedback;
 
-  // Enhanced labels for low value context
-  final String sedentaryLabel;
-  final String lightActiveLabel;
-  final String fairlyActiveLabel;
-  final String veryActiveLabel;
-  final String highlyActiveLabel;
-  final String stepsLabel;
-  final String goalLabel;
-  final String noDataMessage;
-
   // NEW: Low value specific settings
   final bool enhanceLowValues;
   final double lowValueThreshold;
   final Color lowValueHighlightColor;
   final bool showValueLabelsForLowValues;
+
+  // ====== COMPREHENSIVE TEXT LABELS ======
+
+  // Basic labels
+  final String stepsLabel;
+  final String goalLabel;
+  final String noDataMessage;
+
+  // Activity level labels
+  final String sedentaryLabel;
+  final String lightActiveLabel;
+  final String fairlyActiveLabel;
+  final String veryActiveLabel;
+  final String highlyActiveLabel;
+
+  // Goal and achievement messages
+  final String goalAchievedMessage;
+  final String goalProgressMessage;
+  final String motivationalMessage;
+  final String milestoneMessage;
+  final String stepsToGoMessage;
+
+  // Tooltip headers and sections
+  final String dailySummaryTitle;
+  final String weekSummaryTitle;
+  final String monthSummaryTitle;
+  final String yearSummaryTitle;
+
+  // Display labels by view type
+  final String totalStepsLabel;
+  final String avgPerDayLabel;
+  final String readingsLabel;
+  final String activityLabel;
+  final String activeDaysLabel;
+  final String daysLabel;
+
+  // Goal related labels
+  final String dailyGoalLabel;
+  final String goalLineLabel;
+  final String nextMilestoneLabel;
+
+  // Annotation texts
+  final String highestStepsAnnotation;
+  final String lowestStepsAnnotation;
+
+  // Activity descriptions
+  final String sedentaryDescription;
+  final String lightActiveDescription;
+  final String fairlyActiveDescription;
+  final String veryActiveDescription;
+  final String highlyActiveDescription;
+
+  // Low value specific messages
+  final String lowValueEncouragement;
+  final String everyStepCountsMessage;
+  final String keepGoingMessage;
 
   const StepChartStyle({
     // Enhanced color scheme for better low-value visibility
@@ -144,24 +190,70 @@ class StepChartStyle {
     this.animationCurve = Curves.easeInOutCubic,
     this.enableHapticFeedback = true,
 
-    // Labels
-    this.sedentaryLabel = 'Sedentary',
-    this.lightActiveLabel = 'Light',
-    this.fairlyActiveLabel = 'Moderate',
-    this.veryActiveLabel = 'Active',
-    this.highlyActiveLabel = 'Very Active',
-    this.stepsLabel = 'Steps',
-    this.goalLabel = '10K Goal',
-    this.noDataMessage = 'No step data available',
-
     // NEW: Low value enhancements
     this.enhanceLowValues = true,
     this.lowValueThreshold = 2000.0,
     this.lowValueHighlightColor = const Color(0x20FF6F00),
     this.showValueLabelsForLowValues = true,
+
+    // ====== TEXT LABELS WITH DEFAULTS ======
+
+    // Basic labels
+    this.stepsLabel = 'steps_label',
+    this.goalLabel = 'goal_label',
+    this.noDataMessage = 'no_step_data_message',
+
+    // Activity level labels
+    this.sedentaryLabel = 'sedentary_label',
+    this.lightActiveLabel = 'light_active_label',
+    this.fairlyActiveLabel = 'fairly_active_label',
+    this.veryActiveLabel = 'very_active_label',
+    this.highlyActiveLabel = 'highly_active_label',
+
+    // Goal and achievement messages
+    this.goalAchievedMessage = 'goal_achieved_message',
+    this.goalProgressMessage = 'goal_progress_message',
+    this.motivationalMessage = 'motivational_message',
+    this.milestoneMessage = 'milestone_message',
+    this.stepsToGoMessage = 'steps_to_go_message',
+
+    // Tooltip headers and sections
+    this.dailySummaryTitle = 'daily_summary_title',
+    this.weekSummaryTitle = 'week_summary_title',
+    this.monthSummaryTitle = 'month_summary_title',
+    this.yearSummaryTitle = 'year_summary_title',
+
+    // Display labels by view type
+    this.totalStepsLabel = 'total_steps_label',
+    this.avgPerDayLabel = 'avg_per_day_label',
+    this.readingsLabel = 'readings_label',
+    this.activityLabel = 'activity_label',
+    this.activeDaysLabel = 'active_days_label',
+    this.daysLabel = 'days_label',
+
+    // Goal related labels
+    this.dailyGoalLabel = 'daily_goal_label',
+    this.goalLineLabel = 'goal_line_label',
+    this.nextMilestoneLabel = 'next_milestone_label',
+
+    // Annotation texts
+    this.highestStepsAnnotation = 'highest_steps_annotation',
+    this.lowestStepsAnnotation = 'lowest_steps_annotation',
+
+    // Activity descriptions
+    this.sedentaryDescription = 'sedentary_description',
+    this.lightActiveDescription = 'light_active_description',
+    this.fairlyActiveDescription = 'fairly_active_description',
+    this.veryActiveDescription = 'very_active_description',
+    this.highlyActiveDescription = 'highly_active_description',
+
+    // Low value specific messages
+    this.lowValueEncouragement = 'low_value_encouragement',
+    this.everyStepCountsMessage = 'every_step_counts_message',
+    this.keepGoingMessage = 'keep_going_message',
   });
 
-  // Enhanced category color method with better contrast for low values
+  /// Enhanced category color method with better contrast for low values
   Color getCategoryColor(StepCategory category) {
     switch (category) {
       case StepCategory.sedentary:
@@ -177,7 +269,9 @@ class StepChartStyle {
     }
   }
 
-  String getCategoryLabel(StepCategory category) {
+  String getCategoryLabel(
+    StepCategory category,
+  ) {
     switch (category) {
       case StepCategory.sedentary:
         return sedentaryLabel;

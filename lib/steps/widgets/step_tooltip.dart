@@ -34,6 +34,33 @@ class _StepTooltipState extends State<StepTooltip>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  late Map<String, String> _textMap;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutBack,
+      ),
+    );
+
+    _animationController.forward();
+  }
 
   String _formatTimeRange() {
     final startDate = widget.data.startDate;
@@ -90,7 +117,7 @@ class _StepTooltipState extends State<StepTooltip>
 
   Widget _buildMainStepDisplay() {
     final displayValue = widget.data.displayValue;
-    final displayLabel = widget.data.displayLabel;
+    final displayLabel = _getDisplayLabel();
     final isLowValue = displayValue < 1000;
 
     return Center(
@@ -200,7 +227,7 @@ class _StepTooltipState extends State<StepTooltip>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Next milestone: ${NumberFormat('#,###').format(nextMilestone)}',
+                '${widget.style.nextMilestoneLabel}: ${NumberFormat('#,###').format(nextMilestone)}',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: Colors.blue[700],
@@ -224,7 +251,7 @@ class _StepTooltipState extends State<StepTooltip>
           ),
           const SizedBox(height: 4),
           Text(
-            '${NumberFormat('#,###').format(nextMilestone - steps)} steps to go!',
+            '${NumberFormat('#,###').format(nextMilestone - steps)} ${widget.style.stepsToGoMessage}',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Colors.blue[600],
                   fontWeight: FontWeight.w500,
@@ -244,15 +271,16 @@ class _StepTooltipState extends State<StepTooltip>
   }
 
   IconData _getCategoryIcon(int steps) {
-    if (steps <= StepRange.sedentaryMax)
+    if (steps <= StepRange.sedentaryMax) {
       return Icons.airline_seat_individual_suite;
+    }
     if (steps <= StepRange.lightActiveMax) return Icons.directions_walk;
     if (steps <= StepRange.fairlyActiveMax) return Icons.directions_run;
     if (steps <= StepRange.veryActiveMax) return Icons.fitness_center;
     return Icons.local_fire_department;
   }
 
-// Enhanced goal progress for low values
+  // Enhanced goal progress for low values
   Widget _buildGoalProgress() {
     final displayValue = widget.data.displayValue;
     final progress =
@@ -264,13 +292,13 @@ class _StepTooltipState extends State<StepTooltip>
     switch (widget.viewType) {
       case DateRangeType.day:
         goalText =
-            'Daily Goal (${NumberFormat('#,###').format(StepRange.recommendedDaily)})';
+            '${widget.style.dailyGoalLabel} (${NumberFormat('#,###').format(StepRange.recommendedDaily)})';
         break;
       case DateRangeType.week:
       case DateRangeType.month:
       case DateRangeType.year:
         goalText =
-            'Daily Goal (${NumberFormat('#,###').format(StepRange.recommendedDaily)} avg/day)';
+            '${widget.style.dailyGoalLabel} (${NumberFormat('#,###').format(StepRange.recommendedDaily)} ${widget.style.avgPerDayLabel})';
         break;
     }
 
@@ -376,7 +404,7 @@ class _StepTooltipState extends State<StepTooltip>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Goal Achieved! 🎉',
+                  widget.style.goalAchievedMessage,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: widget.style.goalAchievedColor,
                         fontWeight: FontWeight.w700,
@@ -395,7 +423,7 @@ class _StepTooltipState extends State<StepTooltip>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Keep going! Every step counts! 💪',
+                  widget.style.everyStepCountsMessage,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Colors.orange[600],
                         fontWeight: FontWeight.w600,
@@ -432,13 +460,24 @@ class _StepTooltipState extends State<StepTooltip>
   String _getStatsTitle() {
     switch (widget.viewType) {
       case DateRangeType.day:
-        return 'Daily Summary';
+        return widget.style.dailySummaryTitle;
       case DateRangeType.week:
-        return 'Week Summary';
+        return widget.style.weekSummaryTitle;
       case DateRangeType.month:
-        return 'Month Summary';
+        return widget.style.monthSummaryTitle;
       case DateRangeType.year:
-        return 'Year Summary';
+        return widget.style.yearSummaryTitle;
+    }
+  }
+
+  String _getDisplayLabel() {
+    switch (widget.viewType) {
+      case DateRangeType.day:
+        return widget.style.totalStepsLabel;
+      case DateRangeType.week:
+      case DateRangeType.month:
+      case DateRangeType.year:
+        return widget.style.avgPerDayLabel;
     }
   }
 
@@ -458,18 +497,18 @@ class _StepTooltipState extends State<StepTooltip>
   List<Widget> _buildDailyStats() {
     return [
       _buildStatItem(
-        'Total Steps',
+        widget.style.totalStepsLabel,
         NumberFormat('#,###').format(widget.data.totalStepsInPeriod),
         Icons.directions_walk,
         _getCategoryColor(widget.data.totalStepsInPeriod),
       ),
       _buildStatItem(
-        'Readings',
+        widget.style.readingsLabel,
         widget.data.dataPointCount.toString(),
         Icons.analytics_outlined,
       ),
       _buildStatItem(
-        'Activity',
+        widget.style.activityLabel,
         _getCategoryText(widget.data.displayValue),
         Icons.local_fire_department,
         _getCategoryColor(widget.data.displayValue),
@@ -484,18 +523,18 @@ class _StepTooltipState extends State<StepTooltip>
 
     return [
       _buildStatItem(
-        'Total Steps',
+        widget.style.totalStepsLabel,
         NumberFormat('#,###').format(totalSteps),
         Icons.directions_walk,
       ),
       _buildStatItem(
-        'Avg/Day',
+        widget.style.avgPerDayLabel,
         NumberFormat('#,###').format(avgDaily),
         Icons.show_chart,
         _getCategoryColor(avgDaily),
       ),
       _buildStatItem(
-        'Active Days',
+        widget.style.activeDaysLabel,
         daysWithData.toString(),
         Icons.calendar_today,
       ),
@@ -509,18 +548,18 @@ class _StepTooltipState extends State<StepTooltip>
 
     return [
       _buildStatItem(
-        'Total Steps',
+        widget.style.totalStepsLabel,
         NumberFormat('#,###').format(totalSteps),
         Icons.directions_walk,
       ),
       _buildStatItem(
-        'Avg/Day',
+        widget.style.avgPerDayLabel,
         NumberFormat('#,###').format(avgDaily),
         Icons.show_chart,
         _getCategoryColor(avgDaily),
       ),
       _buildStatItem(
-        'Active Days',
+        widget.style.activeDaysLabel,
         daysWithData.toString(),
         Icons.calendar_today,
       ),
@@ -535,18 +574,18 @@ class _StepTooltipState extends State<StepTooltip>
 
     return [
       _buildStatItem(
-        'Total Steps',
+        widget.style.totalStepsLabel,
         NumberFormat('#,###').format(totalSteps),
         Icons.directions_walk,
       ),
       _buildStatItem(
-        'Avg/Day',
+        widget.style.avgPerDayLabel,
         NumberFormat('#,###').format(avgDaily),
         Icons.show_chart,
         _getCategoryColor(avgDaily),
       ),
       _buildStatItem(
-        'Days',
+        widget.style.daysLabel,
         daysInPeriod.toString(),
         Icons.calendar_month,
       ),
@@ -585,44 +624,27 @@ class _StepTooltipState extends State<StepTooltip>
   Color _getCategoryColor(int steps) {
     if (steps <= StepRange.sedentaryMax) return widget.style.sedentaryColor;
     if (steps <= StepRange.lightActiveMax) return widget.style.lightActiveColor;
-    if (steps <= StepRange.fairlyActiveMax)
+    if (steps <= StepRange.fairlyActiveMax) {
       return widget.style.fairlyActiveColor;
+    }
     if (steps <= StepRange.veryActiveMax) return widget.style.veryActiveColor;
     return widget.style.highlyActiveColor;
   }
 
   String _getCategoryText(int steps) {
-    if (steps <= StepRange.sedentaryMax) return widget.style.sedentaryLabel;
-    if (steps <= StepRange.lightActiveMax) return widget.style.lightActiveLabel;
-    if (steps <= StepRange.fairlyActiveMax)
+    if (steps <= StepRange.sedentaryMax) {
+      return widget.style.sedentaryLabel;
+    }
+    if (steps <= StepRange.lightActiveMax) {
+      return widget.style.lightActiveLabel;
+    }
+    if (steps <= StepRange.fairlyActiveMax) {
       return widget.style.fairlyActiveLabel;
-    if (steps <= StepRange.veryActiveMax) return widget.style.veryActiveLabel;
+    }
+    if (steps <= StepRange.veryActiveMax) {
+      return widget.style.veryActiveLabel;
+    }
     return widget.style.highlyActiveLabel;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutBack,
-      ),
-    );
-
-    _animationController.forward();
   }
 
   Future<void> dismiss() async {
@@ -698,7 +720,11 @@ class _StepTooltipState extends State<StepTooltip>
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        widget.data.annotationText,
+                                        widget.data.isHighest
+                                            ? widget
+                                                .style.highestStepsAnnotation
+                                            : widget
+                                                .style.lowestStepsAnnotation,
                                         style: Theme.of(context)
                                             .textTheme
                                             .labelSmall

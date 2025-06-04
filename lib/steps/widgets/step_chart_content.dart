@@ -98,12 +98,10 @@ class _StepChartContentState extends State<StepChartContent> {
     final screenSize = MediaQuery.of(context).size;
     final tooltipSize = Size(280, _calculateTooltipHeight(data));
 
-    final globalPosition = renderBox.localToGlobal(position);
-    final tooltipPosition = StepChartCalculations.calculateTooltipPosition(
-      globalPosition,
-      tooltipSize,
-      screenSize,
-      MediaQuery.of(context).padding,
+    // Center the tooltip on screen
+    final tooltipPosition = Offset(
+      (screenSize.width - tooltipSize.width) / 2,
+      (screenSize.height - tooltipSize.height) / 2,
     );
 
     _tooltipOverlay = OverlayEntry(

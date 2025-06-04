@@ -215,7 +215,7 @@ class StepChartPainter extends CustomPainter {
   void _drawOffScaleGoalLabel(Canvas canvas, double yPosition, int maxValue) {
     final remaining = StepRange.recommendedDaily - maxValue;
     final text =
-        '🎯 Goal: ${_formatStepValue(StepRange.recommendedDaily)} (${_formatStepValue(remaining)} to go)';
+        '🎯 ${style.goalLineLabel}: ${_formatStepValue(StepRange.recommendedDaily)} (${_formatStepValue(remaining)} ${style.stepsToGoMessage})';
 
     final textPainter = TextPainter(
       text: TextSpan(

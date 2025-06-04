@@ -54,10 +54,86 @@ class SleepChartStyle {
   final TextStyle? annotationLabelStyle;
   final TextStyle? valueDisplayStyle;
 
-  // Labels
+  // ====== COMPREHENSIVE TEXT LABELS ======
+
+  // Basic labels
   final String sleepLabel;
   final String recommendationLabel;
   final String noDataMessage;
+
+  // Sleep quality labels
+  final String poorSleepLabel;
+  final String insufficientSleepLabel;
+  final String adequateSleepLabel;
+  final String goodSleepLabel;
+  final String excellentSleepLabel;
+  final String excessiveSleepLabel;
+
+  // Sleep quality descriptions
+  final String poorSleepDescription;
+  final String insufficientSleepDescription;
+  final String adequateSleepDescription;
+  final String goodSleepDescription;
+  final String excellentSleepDescription;
+  final String excessiveSleepDescription;
+
+  // Sleep quality advice
+  final String poorSleepAdvice;
+  final String insufficientSleepAdvice;
+  final String adequateSleepAdvice;
+  final String excessiveSleepAdvice;
+  final String defaultSleepAdvice;
+
+  // Sleep stages labels
+  final String deepSleepLabel;
+  final String remSleepLabel;
+  final String lightSleepLabel;
+  final String awakeSleepLabel;
+  final String awakeInBedLabel;
+  final String unknownSleepLabel;
+
+  // Sleep stages short labels
+  final String deepSleepShortLabel;
+  final String remSleepShortLabel;
+  final String lightSleepShortLabel;
+  final String awakeSleepShortLabel;
+  final String awakeInBedShortLabel;
+  final String unknownSleepShortLabel;
+
+  // Tooltip headers and sections
+  final String sleepStagesTitle;
+  final String sleepPatternTitle;
+  final String sleepSummaryTitle;
+  final String weekSummaryTitle;
+  final String monthSummaryTitle;
+  final String yearSummaryTitle;
+
+  // Display labels by view type
+  final String totalSleepLabel;
+  final String avgPerNightLabel;
+  final String recordingsLabel;
+  final String qualityLabel;
+  final String sleepDaysLabel;
+
+  // Timing labels
+  final String bedtimeLabel;
+  final String wakeTimeLabel;
+  final String efficiencyLabel;
+
+  // Recommendation messages
+  final String goalAchievedMessage;
+  final String recommendedRangeDaily;
+  final String recommendedRangeAverage;
+
+  // Efficiency descriptions
+  final String poorEfficiencyDesc;
+  final String fairEfficiencyDesc;
+  final String goodEfficiencyDesc;
+  final String excellentEfficiencyDesc;
+
+  // Annotation texts
+  final String bestSleepAnnotation;
+  final String leastSleepAnnotation;
 
   const SleepChartStyle({
     // Core colors - calming sleep-focused palette
@@ -110,10 +186,86 @@ class SleepChartStyle {
     this.annotationLabelStyle,
     this.valueDisplayStyle,
 
-    // Labels
-    this.sleepLabel = 'Sleep',
-    this.recommendationLabel = '7-9h Recommended',
-    this.noDataMessage = 'No sleep data available',
+    // ====== TEXT LABELS WITH DEFAULTS ======
+
+    // Basic labels
+    this.sleepLabel = 'sleep_label',
+    this.recommendationLabel = 'recommendation_label',
+    this.noDataMessage = 'no_sleep_data_message',
+
+    // Sleep quality labels
+    this.poorSleepLabel = 'poor_sleep_label',
+    this.insufficientSleepLabel = 'insufficient_sleep_label',
+    this.adequateSleepLabel = 'adequate_sleep_label',
+    this.goodSleepLabel = 'good_sleep_label',
+    this.excellentSleepLabel = 'excellent_sleep_label',
+    this.excessiveSleepLabel = 'excessive_sleep_label',
+
+    // Sleep quality descriptions
+    this.poorSleepDescription = 'poor_sleep_description',
+    this.insufficientSleepDescription = 'insufficient_sleep_description',
+    this.adequateSleepDescription = 'adequate_sleep_description',
+    this.goodSleepDescription = 'good_sleep_description',
+    this.excellentSleepDescription = 'excellent_sleep_description',
+    this.excessiveSleepDescription = 'excessive_sleep_description',
+
+    // Sleep quality advice
+    this.poorSleepAdvice = 'poor_sleep_advice',
+    this.insufficientSleepAdvice = 'insufficient_sleep_advice',
+    this.adequateSleepAdvice = 'adequate_sleep_advice',
+    this.excessiveSleepAdvice = 'excessive_sleep_advice',
+    this.defaultSleepAdvice = 'default_sleep_advice',
+
+    // Sleep stages labels
+    this.deepSleepLabel = 'deep_sleep_label',
+    this.remSleepLabel = 'rem_sleep_label',
+    this.lightSleepLabel = 'light_sleep_label',
+    this.awakeSleepLabel = 'awake_sleep_label',
+    this.awakeInBedLabel = 'awake_in_bed_label',
+    this.unknownSleepLabel = 'unknown_sleep_label',
+
+    // Sleep stages short labels
+    this.deepSleepShortLabel = 'deep_sleep_short_label',
+    this.remSleepShortLabel = 'rem_sleep_short_label',
+    this.lightSleepShortLabel = 'light_sleep_short_label',
+    this.awakeSleepShortLabel = 'awake_sleep_short_label',
+    this.awakeInBedShortLabel = 'awake_in_bed_short_label',
+    this.unknownSleepShortLabel = 'unknown_sleep_short_label',
+
+    // Tooltip headers and sections
+    this.sleepStagesTitle = 'sleep_stages_title',
+    this.sleepPatternTitle = 'sleep_pattern_title',
+    this.sleepSummaryTitle = 'sleep_summary_title',
+    this.weekSummaryTitle = 'week_summary_title',
+    this.monthSummaryTitle = 'month_summary_title',
+    this.yearSummaryTitle = 'year_summary_title',
+
+    // Display labels by view type
+    this.totalSleepLabel = 'total_sleep_label',
+    this.avgPerNightLabel = 'avg_per_night_label',
+    this.recordingsLabel = 'recordings_label',
+    this.qualityLabel = 'quality_label',
+    this.sleepDaysLabel = 'sleep_days_label',
+
+    // Timing labels
+    this.bedtimeLabel = 'bedtime_label',
+    this.wakeTimeLabel = 'wake_time_label',
+    this.efficiencyLabel = 'efficiency_label',
+
+    // Recommendation messages
+    this.goalAchievedMessage = 'goal_achieved_message',
+    this.recommendedRangeDaily = 'recommended_range_daily',
+    this.recommendedRangeAverage = 'recommended_range_average',
+
+    // Efficiency descriptions
+    this.poorEfficiencyDesc = 'poor_efficiency_desc',
+    this.fairEfficiencyDesc = 'fair_efficiency_desc',
+    this.goodEfficiencyDesc = 'good_efficiency_desc',
+    this.excellentEfficiencyDesc = 'excellent_efficiency_desc',
+
+    // Annotation texts
+    this.bestSleepAnnotation = 'best_sleep_annotation',
+    this.leastSleepAnnotation = 'least_sleep_annotation',
   });
 
   /// Get color for a specific sleep stage

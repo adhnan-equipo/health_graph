@@ -98,12 +98,10 @@ class _SleepChartContentState extends State<SleepChartContent> {
     final screenSize = MediaQuery.of(context).size;
     final tooltipSize = Size(340, _calculateTooltipHeight(data));
 
-    final globalPosition = renderBox.localToGlobal(position);
-    final tooltipPosition = SleepChartCalculations.calculateTooltipPosition(
-      globalPosition,
-      tooltipSize,
-      screenSize,
-      MediaQuery.of(context).padding,
+    // Center the tooltip on screen
+    final tooltipPosition = Offset(
+      (screenSize.width - tooltipSize.width) / 2,
+      (screenSize.height - tooltipSize.height) / 2,
     );
 
     _tooltipOverlay = OverlayEntry(
