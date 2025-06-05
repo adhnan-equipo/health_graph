@@ -533,11 +533,12 @@ class _StepTooltipState extends State<StepTooltip>
         Icons.show_chart,
         _getCategoryColor(avgDaily),
       ),
-      _buildStatItem(
-        widget.style.activeDaysLabel,
-        daysWithData.toString(),
-        Icons.calendar_today,
-      ),
+      if (widget.viewType == DateRangeType.year)
+        _buildStatItem(
+          widget.style.activeDaysLabel,
+          daysWithData.toString(),
+          Icons.calendar_today,
+        ),
     ];
   }
 

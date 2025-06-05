@@ -365,11 +365,20 @@ class SleepChartPainter extends CustomPainter {
           (i * (barWidth + barPadding)) +
           (barWidth / 2);
 
-      // Simple date formatting based on view type
+      // FIXED: Improved date formatting with 4-hour intervals for day view
       String label;
+      bool shouldShowLabel = true;
+
       switch (config.viewType) {
         case DateRangeType.day:
-          label = '${entry.startDate.hour}h';
+          // FIXED: Show labels only for 4-hour intervals (0, 4, 8, 12, 16, 20)
+          final hour = entry.startDate.hour;
+          if (hour % 4 == 0) {
+            label = '${hour.toString().padLeft(2, '0')}:00';
+          } else {
+            shouldShowLabel = false;
+            label = '';
+          }
           break;
         case DateRangeType.week:
           label =
@@ -396,24 +405,28 @@ class SleepChartPainter extends CustomPainter {
           break;
       }
 
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: (style.dateLabelStyle ?? style.defaultDateLabelStyle).copyWith(
-            color: (style.dateLabelStyle?.color ??
-                    style.defaultDateLabelStyle.color)
-                ?.withOpacity(animation.value),
+      // Only draw label if it should be shown
+      if (shouldShowLabel && label.isNotEmpty) {
+        final textPainter = TextPainter(
+          text: TextSpan(
+            text: label,
+            style:
+                (style.dateLabelStyle ?? style.defaultDateLabelStyle).copyWith(
+              color: (style.dateLabelStyle?.color ??
+                      style.defaultDateLabelStyle.color)
+                  ?.withOpacity(animation.value),
+            ),
           ),
-        ),
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      );
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        );
 
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x - textPainter.width / 2, chartArea.bottom + 12),
-      );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(x - textPainter.width / 2, chartArea.bottom + 12),
+        );
+      }
     }
   }
 
@@ -444,12 +457,17 @@ class SleepChartPainter extends CustomPainter {
     return normalizedValue.clamp(0.0, 1.0) * chartArea.height;
   }
 
+  // FIXED: Improved duration formatting - prefer whole hours
   String _formatSleepDuration(int minutes) {
     final hours = minutes ~/ 60;
     final mins = minutes % 60;
+
+    // Always show whole hours when possible
     if (hours == 0) return '${mins}m';
     if (mins == 0) return '${hours}h';
-    return '${hours}h${mins}m';
+
+    // For mixed hours and minutes, still show both but prioritize readability
+    return '${hours}h ${mins}m';
   }
 
   @override

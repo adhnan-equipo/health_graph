@@ -258,7 +258,7 @@ class StepChartCalculations {
   }
 
   static Rect calculateChartArea(Size size) {
-    const leftPadding = 60.0; // Increased for better label space
+    const leftPadding = 40.0; // Increased for better label space
     const rightPadding = 15.0;
     const topPadding = 25.0; // Increased for goal line space
     const bottomPadding = 45.0;

@@ -42,7 +42,7 @@ class SleepChartCalculations {
     minValue = adjustedRange.min;
     maxValue = adjustedRange.max;
 
-    // Calculate step size for sleep data (in minutes)
+    // Calculate step size for sleep data (in minutes) - FIXED: Prefer whole hours
     final stepSize = _calculateSleepStepSize(minValue, maxValue);
     final yAxisValues = _generateSleepAxisValues(minValue, maxValue, stepSize);
 
@@ -71,24 +71,20 @@ class SleepChartCalculations {
       adjustedMax = maxValue + buffer;
     }
 
-    // Round to nice increments
-    if (adjustedMax <= 480) {
-      adjustedMax = ((adjustedMax / 60).ceil() * 60); // Round to nearest hour
-    } else {
-      adjustedMax =
-          ((adjustedMax / 120).ceil() * 120); // Round to nearest 2 hours
-    }
+    // Round to nice increments - FIXED: Always round to whole hours
+    adjustedMax = ((adjustedMax / 60).ceil() * 60); // Round to nearest hour
 
     return (min: 0, max: adjustedMax);
   }
 
-  /// Calculate appropriate step size for sleep data
+  /// Calculate appropriate step size for sleep data - FIXED: Prefer whole hours
   static int _calculateSleepStepSize(int min, int max) {
     final range = max - min;
 
-    if (range <= 240) return 30; // 30-minute increments for short ranges
+    // FIXED: Always prefer whole hour increments (60 minutes)
+    if (range <= 240) return 60; // 1-hour increments for short ranges (was 30)
     if (range <= 480) return 60; // 1-hour increments
-    if (range <= 720) return 90; // 1.5-hour increments
+    if (range <= 720) return 120; // 2-hour increments
     if (range <= 1080) return 120; // 2-hour increments
     return 180; // 3-hour increments for very long ranges
   }
@@ -132,7 +128,7 @@ class SleepChartCalculations {
   /// Default range for empty sleep data
   static (List<int>, double, double) _getDefaultSleepRange() {
     const defaultMax = 480; // 8 hours
-    const step = 60; // 1 hour increments
+    const step = 60; // 1 hour increments - FIXED: Always use 1-hour steps
     final values = [0, 60, 120, 180, 240, 300, 360, 420, 480]; // 0-8 hours
     return (values, 0.0, defaultMax.toDouble());
   }
@@ -197,7 +193,7 @@ class SleepChartCalculations {
   /// Calculate chart area with appropriate padding for sleep data
   static Rect calculateChartArea(Size size) {
     const leftPadding =
-        70.0; // Larger for sleep duration labels (e.g., "8h 30m")
+        40.0; // Larger for sleep duration labels (e.g., "8h 30m")
     const rightPadding = 15.0;
     const topPadding = 25.0;
     const bottomPadding = 45.0;
