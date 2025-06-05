@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/drawers/chart_background_drawer.dart';
+import '../../shared/drawers/chart_grid_drawer.dart';
+import '../../shared/drawers/chart_label_drawer.dart';
 import '../../utils/chart_view_config.dart';
 import '../models/processed_blood_pressure_data.dart';
 import '../styles/blood_pressure_chart_style.dart';
-import 'chart_abel_drawer.dart';
-import 'chart_background_drawer.dart';
 import 'chart_data_point_drawer.dart';
-import 'chart_grid_drawer.dart';
 import 'chart_reference_range_drawer.dart';
 
 class BloodPressureChartPainter extends CustomPainter {
@@ -52,7 +52,7 @@ class BloodPressureChartPainter extends CustomPainter {
 
     // Animate grid lines
     if (config.showGrid) {
-      _gridDrawer.drawGrid(
+      _gridDrawer.drawIntegerGrid(
         canvas,
         chartArea,
         yAxisValues,
@@ -75,21 +75,22 @@ class BloodPressureChartPainter extends CustomPainter {
     canvas.restore();
 
     // Draw labels with animation
-    _labelDrawer.drawSideLabels(
+    _labelDrawer.drawIntegerSideLabels(
       canvas,
       chartArea,
       yAxisValues,
-      style.dateLabelStyle!,
+      style.gridLabelStyle ?? const TextStyle(fontSize: 12, color: Colors.grey),
       animation.value,
     );
 
-    _labelDrawer.drawBottomLabels(
+    _labelDrawer.drawBottomLabels<ProcessedBloodPressureData>(
       canvas,
       chartArea,
       data,
       config.viewType,
-      style,
+      style.dateLabelStyle ?? const TextStyle(fontSize: 12, color: Colors.grey),
       animation.value,
+      (data) => data.startDate,
     );
 
     // Draw data points with animation

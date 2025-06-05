@@ -1,34 +1,71 @@
-// lib/steps/drawer/step_label_drawer.dart
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../../models/date_range_type.dart';
-import '../../shared/utils/chart_calculations.dart';
 import '../../utils/date_formatter.dart';
-import '../models/processed_step_data.dart';
-import '../styles/step_chart_style.dart';
+import '../utils/chart_calculations.dart';
 
-class StepLabelDrawer {
+/// Shared chart label drawer for all health metric charts
+/// Provides consistent label drawing with animation support
+class ChartLabelDrawer {
   final TextPainter _textPainter = TextPainter(
     textDirection: TextDirection.ltr,
     textAlign: TextAlign.center,
   );
 
-  void drawSideLabels(
+  /// Draws Y-axis labels for numeric values (double)
+  void drawNumericSideLabels(
+    Canvas canvas,
+    Rect chartArea,
+    List<double> yAxisValues,
+    TextStyle textStyle,
+    double animationValue,
+  ) {
+    final minValue = yAxisValues.isNotEmpty ? yAxisValues.first : 0.0;
+    final maxValue = yAxisValues.isNotEmpty ? yAxisValues.last : 100.0;
+
+    for (var value in yAxisValues) {
+      final y = SharedChartCalculations.calculateYPosition(
+          value, chartArea, minValue, maxValue);
+
+      final formattedValue = SharedChartCalculations.formatAxisLabel(value);
+
+      _textPainter
+        ..text = TextSpan(
+          text: formattedValue,
+          style: textStyle.copyWith(
+            color: textStyle.color?.withValues(alpha: animationValue),
+          ),
+        )
+        ..layout();
+
+      final xOffset = chartArea.left - _textPainter.width - 8;
+      final animatedXOffset = Offset(
+        lerpDouble(chartArea.left, xOffset, animationValue)!,
+        y - _textPainter.height / 2,
+      );
+
+      _textPainter.paint(canvas, animatedXOffset);
+    }
+  }
+
+  /// Draws Y-axis labels for integer values
+  void drawIntegerSideLabels(
     Canvas canvas,
     Rect chartArea,
     List<int> yAxisValues,
     TextStyle textStyle,
     double animationValue,
   ) {
-    final minValue = yAxisValues.isNotEmpty ? yAxisValues.first.toDouble() : 0;
+    final minValue =
+        yAxisValues.isNotEmpty ? yAxisValues.first.toDouble() : 0.0;
     final maxValue =
-        yAxisValues.isNotEmpty ? yAxisValues.last.toDouble() : 15000;
+        yAxisValues.isNotEmpty ? yAxisValues.last.toDouble() : 100.0;
 
     for (var value in yAxisValues) {
-      final y = SharedChartCalculations.calculateYPosition(value.toDouble(),
-          chartArea, minValue.toDouble(), maxValue.toDouble());
+      final y = SharedChartCalculations.calculateYPosition(
+          value.toDouble(), chartArea, minValue, maxValue);
 
       final formattedValue =
           SharedChartCalculations.formatAxisLabel(value.toDouble());
@@ -52,13 +89,15 @@ class StepLabelDrawer {
     }
   }
 
-  void drawBottomLabels(
+  /// Draws bottom date labels for any data type with date information
+  void drawBottomLabels<T>(
     Canvas canvas,
     Rect chartArea,
-    List<ProcessedStepData> data,
+    List<T> data,
     DateRangeType viewType,
-    StepChartStyle style,
+    TextStyle textStyle,
     double animationValue,
+    DateTime Function(T) getStartDate,
   ) {
     if (data.isEmpty) return;
 
@@ -72,14 +111,13 @@ class StepLabelDrawer {
       if (i % labelStep != 0) continue;
 
       final x = chartArea.left + edgePadding + (i * xStep);
-      final label = DateFormatter.format(data[i].startDate, viewType);
+      final label = DateFormatter.format(getStartDate(data[i]), viewType);
 
       _textPainter
         ..text = TextSpan(
           text: label,
-          style: (style.dateLabelStyle ?? style.defaultDateLabelStyle).copyWith(
-            color:
-                style.dateLabelStyle?.color?.withValues(alpha: animationValue),
+          style: textStyle.copyWith(
+            color: textStyle.color?.withValues(alpha: animationValue),
           ),
         )
         ..layout();
@@ -97,6 +135,7 @@ class StepLabelDrawer {
     }
   }
 
+  /// Calculates optimal label step based on data length and view type
   int _calculateLabelStep(int dataLength, DateRangeType viewType) {
     switch (viewType) {
       case DateRangeType.day:

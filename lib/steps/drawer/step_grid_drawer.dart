@@ -1,11 +1,14 @@
-// lib/steps/drawer/step_grid_drawer.dart
+// This file is deprecated - use shared/drawers/chart_grid_drawer.dart instead
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../services/step_chart_calculations.dart';
+import '../../shared/drawers/chart_grid_drawer.dart' as shared;
+import '../../shared/utils/chart_calculations.dart';
 
 class StepGridDrawer {
+  final shared.ChartGridDrawer _sharedDrawer = shared.ChartGridDrawer();
+
   void drawGrid(
     Canvas canvas,
     Rect chartArea,
@@ -14,39 +17,17 @@ class StepGridDrawer {
     double maxValue,
     double animationValue,
   ) {
-    final paint = Paint()
-      ..color = Colors.grey.withValues(alpha: 0.15 * animationValue)
-      ..strokeWidth = 0.5
-      ..style = PaintingStyle.stroke;
-
-    // Draw horizontal grid lines
-    for (var value in yAxisValues) {
-      final y = StepChartCalculations.calculateYPosition(
-          value.toDouble(), chartArea, minValue, maxValue);
-
-      final start = Offset(chartArea.left, y);
-      final end = Offset(
-        lerpDouble(chartArea.left, chartArea.right, animationValue)!,
-        y,
-      );
-
-      canvas.drawLine(start, end, paint);
-    }
+    _sharedDrawer.drawIntegerGrid(
+        canvas, chartArea, yAxisValues, minValue, maxValue, animationValue);
   }
 
+  // Delegated to shared calculations
   static double calculateXPosition(
     int index,
     int totalPoints,
     Rect chartArea,
   ) {
-    const edgePadding = 15.0;
-    final availableWidth = chartArea.width - (edgePadding * 2);
-
-    if (totalPoints <= 1) {
-      return chartArea.center.dx;
-    }
-
-    final pointSpacing = availableWidth / (totalPoints - 1);
-    return chartArea.left + edgePadding + (index * pointSpacing);
+    return SharedChartCalculations.calculateXPosition(
+        index, totalPoints, chartArea);
   }
 }

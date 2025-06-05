@@ -89,7 +89,6 @@ class _ChartTooltipState extends State<ChartTooltip>
     if (measurements.isEmpty) return const SizedBox.shrink();
 
     // Only show the first 5 measurements if there are many
-    final displayCount = measurements.length > 5 ? 5 : measurements.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

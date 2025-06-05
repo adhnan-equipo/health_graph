@@ -324,7 +324,7 @@ class StepChartStyle {
           Shadow(
             offset: const Offset(0, 1),
             blurRadius: 2,
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withValues(alpha: 0.8),
           ),
         ],
       );

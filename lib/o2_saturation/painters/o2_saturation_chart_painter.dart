@@ -1,12 +1,12 @@
 // lib/o2_saturation/painters/o2_saturation_chart_painter.dart
 import 'package:flutter/material.dart';
 
+import '../../shared/drawers/chart_background_drawer.dart';
+import '../../shared/drawers/chart_grid_drawer.dart';
+import '../../shared/drawers/chart_label_drawer.dart';
 import '../../utils/chart_view_config.dart';
 import '../models/processed_o2_saturation_data.dart';
 import '../styles/o2_saturation_chart_style.dart';
-import 'chart_background_drawer.dart';
-import 'chart_grid_drawer.dart';
-import 'chart_label_drawer.dart';
 import 'o2_data_point_drawer.dart';
 import 'o2_reference_range_drawer.dart';
 
@@ -21,10 +21,9 @@ class O2SaturationChartPainter extends CustomPainter {
   final double minValue;
   final double maxValue;
 
-  late final O2ChartBackgroundDrawer _backgroundDrawer =
-      O2ChartBackgroundDrawer();
-  late final O2ChartGridDrawer _gridDrawer = O2ChartGridDrawer();
-  late final O2ChartLabelDrawer _labelDrawer = O2ChartLabelDrawer();
+  late final ChartBackgroundDrawer _backgroundDrawer = ChartBackgroundDrawer();
+  late final ChartGridDrawer _gridDrawer = ChartGridDrawer();
+  late final ChartLabelDrawer _labelDrawer = ChartLabelDrawer();
   late final O2ReferenceRangeDrawer _rangeDrawer = O2ReferenceRangeDrawer();
   late final O2DataPointDrawer _dataPointDrawer = O2DataPointDrawer();
 
@@ -55,7 +54,7 @@ class O2SaturationChartPainter extends CustomPainter {
 
     // Animate grid lines
     if (config.showGrid) {
-      _gridDrawer.drawGrid(
+      _gridDrawer.drawIntegerGrid(
         canvas,
         chartArea,
         yAxisValues,
@@ -78,7 +77,7 @@ class O2SaturationChartPainter extends CustomPainter {
     canvas.restore();
 
     // Draw labels with animation
-    _labelDrawer.drawSideLabels(
+    _labelDrawer.drawIntegerSideLabels(
       canvas,
       chartArea,
       yAxisValues,
@@ -86,13 +85,14 @@ class O2SaturationChartPainter extends CustomPainter {
       animation.value,
     );
 
-    _labelDrawer.drawBottomLabels(
+    _labelDrawer.drawBottomLabels<ProcessedO2SaturationData>(
       canvas,
       chartArea,
       data,
       config.viewType,
-      style,
+      style.effectiveDateLabelStyle,
       animation.value,
+      (data) => data.startDate,
     );
 
     // Draw data points with animation

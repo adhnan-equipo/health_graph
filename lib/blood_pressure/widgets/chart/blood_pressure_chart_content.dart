@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../shared/utils/chart_calculations.dart';
+import '../../../shared/widgets/empty_state_overlay.dart';
 import '../../../utils/chart_view_config.dart';
-import '../../../utils/empty_state_overlay.dart';
 import '../../Drawer/blood_pressure_chart_painter.dart';
 import '../../models/processed_blood_pressure_data.dart';
-import '../../services/chart_calculations.dart';
 import '../../styles/blood_pressure_chart_style.dart';
 import 'chart_tooltip.dart';
 
@@ -70,10 +70,27 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
       if (size != _chartSize || newDataHash != _lastDataHash) {
         setState(() {
           _chartSize = size;
-          _chartArea = ChartCalculations.calculateChartArea(size);
+          _chartArea = SharedChartCalculations.calculateChartArea(size);
+          // Extract values for axis calculation
+          final allValues = <int>[];
+          for (var point in widget.data) {
+            if (!point.isEmpty) {
+              allValues.addAll([
+                point.minSystolic,
+                point.maxSystolic,
+                point.minDiastolic,
+                point.maxDiastolic,
+              ]);
+            }
+          }
+
+          // Add reference range values
+          for (var range in widget.referenceRanges) {
+            allValues.addAll([range.$1, range.$2]);
+          }
+
           final (yAxisValues, minValue, maxValue) =
-              ChartCalculations.calculateYAxisRange(
-                  widget.data, widget.referenceRanges);
+              SharedChartCalculations.calculateIntegerYAxisRange(allValues);
           _yAxisValues = yAxisValues;
           _minValue = minValue;
           _maxValue = maxValue;
@@ -97,7 +114,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
     final tooltipSize = Size(280, _calculateTooltipHeight(data));
 
     final globalPosition = renderBox.localToGlobal(position);
-    final tooltipPosition = ChartCalculations.calculateTooltipPosition(
+    final tooltipPosition = SharedChartCalculations.calculateTooltipPosition(
       globalPosition,
       tooltipSize,
       screenSize,
@@ -163,7 +180,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
       final entry = widget.data[i];
       if (entry.isEmpty) continue;
 
-      final x = ChartCalculations.calculateXPosition(
+      final x = SharedChartCalculations.calculateXPosition(
           i, widget.data.length, _chartArea!);
       final xDistance = (localPosition.dx - x).abs();
 
@@ -251,7 +268,7 @@ class _BloodPressureChartContentState extends State<BloodPressureChartContent> {
           ),
           // Draw empty state overlay with message
           const Center(
-            child: EmptyStateOverlay(
+            child: SharedEmptyStateOverlay(
               message: 'No blood pressure data available',
               icon: Icons.monitor_heart_outlined,
             ),

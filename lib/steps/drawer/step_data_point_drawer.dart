@@ -4,8 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../shared/utils/chart_calculations.dart';
 import '../models/processed_step_data.dart';
-import '../services/step_chart_calculations.dart';
 import '../styles/step_chart_style.dart';
 
 class StepDataPointDrawer {
@@ -50,7 +50,7 @@ class StepDataPointDrawer {
       // KEY FIX: Use TOTAL steps for the period, not latest individual reading
       final stepValue = entry.totalStepsInPeriod.toDouble();
 
-      final y = StepChartCalculations.calculateYPosition(
+      final y = SharedChartCalculations.calculateYPosition(
           stepValue, chartArea, minValue, maxValue);
 
       final position = Offset(x, y);
@@ -96,7 +96,7 @@ class StepDataPointDrawer {
       // KEY FIX: Use TOTAL steps for trend line as well
       final stepValue = data[i].totalStepsInPeriod.toDouble();
       final x = chartArea.left + edgePadding + (i * xStep);
-      final y = StepChartCalculations.calculateYPosition(
+      final y = SharedChartCalculations.calculateYPosition(
           stepValue, chartArea, minValue, maxValue);
 
       points.add(Offset(x, y));
@@ -127,7 +127,7 @@ class StepDataPointDrawer {
     if (_trendPath == null) return;
 
     final linePaint = Paint()
-      ..color = style.lineColor.withOpacity(0.8 * animation.value)
+      ..color = style.lineColor.withValues(alpha: 0.8 * animation.value)
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -137,7 +137,7 @@ class StepDataPointDrawer {
 
     // Add subtle shadow
     final shadowPaint = Paint()
-      ..color = style.lineColor.withOpacity(0.15 * animation.value)
+      ..color = style.lineColor.withValues(alpha: 0.15 * animation.value)
       ..strokeWidth = 4.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round

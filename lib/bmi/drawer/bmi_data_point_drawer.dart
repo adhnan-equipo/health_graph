@@ -4,8 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../shared/utils/chart_calculations.dart';
 import '../models/processed_bmi_data.dart';
-import '../services/bmi_chart_calculations.dart';
 import '../styles/bmi_chart_style.dart';
 
 class BMIDataPointDrawer {
@@ -59,7 +59,7 @@ class BMIDataPointDrawer {
       }
 
       // Use shared calculation method for consistent positioning
-      final y = BMIChartCalculations.calculateYPosition(
+      final y = SharedChartCalculations.calculateYPosition(
           yValue, chartArea, minValue, maxValue);
 
       final position = Offset(x, y);
@@ -116,7 +116,7 @@ class BMIDataPointDrawer {
       final x = chartArea.left + edgePadding + (i * xStep);
 
       // Use shared calculation method for consistent positioning
-      final y = BMIChartCalculations.calculateYPosition(
+      final y = SharedChartCalculations.calculateYPosition(
           yValue, chartArea, minValue, maxValue);
 
       points.add(Offset(x, y));
@@ -167,7 +167,7 @@ class BMIDataPointDrawer {
 
     // Draw the main line
     final linePaint = Paint()
-      ..color = style.lineColor.withOpacity(0.8 * animation.value)
+      ..color = style.lineColor.withValues(alpha: 0.8 * animation.value)
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -177,53 +177,13 @@ class BMIDataPointDrawer {
 
     // Add a subtle shadow for depth (optional)
     final shadowPaint = Paint()
-      ..color = style.lineColor.withOpacity(0.15 * animation.value)
+      ..color = style.lineColor.withValues(alpha: 0.15 * animation.value)
       ..strokeWidth = 4.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
 
     canvas.drawPath(_trendPath!, shadowPaint);
-  }
-
-  void _drawSelectionHighlight(
-    Canvas canvas,
-    double x,
-    Rect chartArea,
-    BMIChartStyle style,
-    double animationValue,
-  ) {
-    // Draw vertical line highlight with animation
-    final paint = Paint()
-      ..color = style.selectedHighlightColor.withValues(alpha: animationValue)
-      ..strokeWidth = 2;
-
-    // Animate from center
-    final centerY = chartArea.center.dy;
-    final topY = ui.lerpDouble(centerY, chartArea.top, animationValue)!;
-    final bottomY = ui.lerpDouble(centerY, chartArea.bottom, animationValue)!;
-
-    canvas.drawLine(
-      Offset(x, topY),
-      Offset(x, bottomY),
-      paint,
-    );
-
-    // Add subtle glow effect
-    paint
-      ..color =
-          style.selectedHighlightColor.withValues(alpha: 0.3 * animationValue)
-      ..strokeWidth = 8
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-
-    canvas.drawLine(
-      Offset(x, topY),
-      Offset(x, bottomY),
-      paint,
-    );
-
-    // Reset mask filter
-    paint.maskFilter = null;
   }
 
   void _drawEnhancedDataPoint(

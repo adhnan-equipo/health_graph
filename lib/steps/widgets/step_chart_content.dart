@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../shared/utils/chart_calculations.dart';
+import '../../shared/widgets/empty_state_overlay.dart';
 import '../../utils/chart_view_config.dart';
-import '../../utils/empty_state_overlay.dart';
 import '../drawer/step_chart_painter.dart';
 import '../models/processed_step_data.dart';
-import '../services/step_chart_calculations.dart';
 import '../styles/step_chart_style.dart';
 import 'step_tooltip.dart';
 
@@ -73,9 +73,17 @@ class _StepChartContentState extends State<StepChartContent> {
       if (size != _chartSize || newDataHash != _lastDataHash) {
         setState(() {
           _chartSize = size;
-          _chartArea = StepChartCalculations.calculateChartArea(size);
+          _chartArea = SharedChartCalculations.calculateChartArea(size);
+          // Extract step values for axis calculation
+          final allValues = <int>[];
+          for (var point in widget.data) {
+            if (!point.isEmpty) {
+              allValues.add(point.totalSteps);
+            }
+          }
+
           final (yAxisValues, minValue, maxValue) =
-              StepChartCalculations.calculateYAxisRange(widget.data, []);
+              SharedChartCalculations.calculateIntegerYAxisRange(allValues);
           _yAxisValues = yAxisValues;
           _minValue = minValue;
           _maxValue = maxValue;
@@ -142,11 +150,13 @@ class _StepChartContentState extends State<StepChartContent> {
 
     if (!_isPointInChartArea(localPosition)) return;
 
-    final closestPoint = StepChartCalculations.findDataPoint(
+    final closestIndex = SharedChartCalculations.findClosestDataPointIndex(
       localPosition,
       _chartArea!,
-      widget.data,
+      widget.data.length,
     );
+    final closestPoint =
+        closestIndex != null ? widget.data[closestIndex] : null;
 
     if (closestPoint != null) {
       HapticFeedback.selectionClick();
@@ -167,8 +177,10 @@ class _StepChartContentState extends State<StepChartContent> {
 
     if (!_isPointInChartArea(localPosition)) return;
 
-    final dataPoint = StepChartCalculations.findDataPoint(
-        localPosition, _chartArea!, widget.data);
+    final dataPointIndex = SharedChartCalculations.findClosestDataPointIndex(
+        localPosition, _chartArea!, widget.data.length);
+    final dataPoint =
+        dataPointIndex != null ? widget.data[dataPointIndex] : null;
 
     if (dataPoint != null) {
       HapticFeedback.heavyImpact();
@@ -235,7 +247,7 @@ class _StepChartContentState extends State<StepChartContent> {
             ),
           ),
           Center(
-            child: EmptyStateOverlay(
+            child: SharedEmptyStateOverlay(
               message: widget.style.noDataMessage,
               icon: Icons.directions_walk,
             ),

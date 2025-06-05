@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/date_range_type.dart';
-import '../utils/empty_state_overlay.dart';
+import '../shared/widgets/empty_state_overlay.dart';
 import '../utils/tooltip_position.dart';
 import 'controllers/heart_rate_chart_controller.dart';
 import 'models/heart_rate_chart_config.dart';
@@ -290,7 +290,7 @@ class _HeartRateChartState extends State<HeartRateChart>
           ),
         ),
         // Show empty state overlay
-        EmptyStateOverlay(
+        SharedEmptyStateOverlay(
           message: widget.style.noDataLabel,
           icon: Icons.favorite_outline,
         ),

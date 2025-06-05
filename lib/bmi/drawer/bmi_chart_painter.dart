@@ -3,13 +3,14 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../shared/drawers/chart_background_drawer.dart';
+import '../../shared/drawers/chart_grid_drawer.dart';
+import '../../shared/drawers/chart_label_drawer.dart';
+import '../../shared/utils/chart_calculations.dart';
 import '../../utils/chart_view_config.dart';
 import '../models/processed_bmi_data.dart';
 import '../styles/bmi_chart_style.dart';
 import 'bmi_data_point_drawer.dart';
-import 'chart_background_drawer.dart';
-import 'chart_grid_drawer.dart';
-import 'chart_label_drawer.dart';
 
 class BMIChartPainter extends CustomPainter {
   final List<ProcessedBMIData> data;
@@ -53,13 +54,8 @@ class BMIChartPainter extends CustomPainter {
     _backgroundDrawer.drawBackground(canvas, chartArea);
 
     if (config.showGrid) {
-      _gridDrawer.drawGrid(
-          canvas,
-          chartArea,
-          yAxisValues.map((e) => e).toList(),
-          minValue,
-          maxValue,
-          animation.value);
+      _gridDrawer.drawNumericGrid(
+          canvas, chartArea, yAxisValues, minValue, maxValue, animation.value);
     }
 
     // Draw BMI range indicators
@@ -68,21 +64,22 @@ class BMIChartPainter extends CustomPainter {
     canvas.restore();
 
     // Draw labels
-    _labelDrawer.drawSideLabels(
+    _labelDrawer.drawNumericSideLabels(
       canvas,
       chartArea,
-      yAxisValues.map((e) => e.toDouble()).toList(),
+      yAxisValues,
       style.gridLabelStyle ?? style.defaultGridLabelStyle,
       animation.value,
     );
 
-    _labelDrawer.drawBottomLabels(
+    _labelDrawer.drawBottomLabels<ProcessedBMIData>(
       canvas,
       chartArea,
       data,
       config.viewType,
-      style,
+      style.dateLabelStyle ?? style.defaultDateLabelStyle,
       animation.value,
+      (data) => data.startDate,
     );
 
     // Draw data points and trend line
@@ -151,8 +148,10 @@ class BMIChartPainter extends CustomPainter {
       final adjustedStart = max(startBMI, visibleMin);
       final adjustedEnd = min(endBMI, visibleMax);
 
-      final startY = _getYPosition(adjustedEnd); // Flip because Y is inverted
-      final endY = _getYPosition(adjustedStart);
+      final startY = SharedChartCalculations.calculateYPosition(adjustedEnd,
+          chartArea, minValue, maxValue); // Flip because Y is inverted
+      final endY = SharedChartCalculations.calculateYPosition(
+          adjustedStart, chartArea, minValue, maxValue);
 
       // Don't draw if range is too small to be visible
       if ((endY - startY).abs() < 10) return;
@@ -248,12 +247,6 @@ class BMIChartPainter extends CustomPainter {
         yCenter,
       ),
     );
-  }
-
-  @Deprecated('Use BMIChartCalculations.calculateYPosition instead')
-  double _getYPosition(double value) {
-    return chartArea.bottom -
-        ((value - minValue) / (maxValue - minValue)) * chartArea.height;
   }
 
   @override

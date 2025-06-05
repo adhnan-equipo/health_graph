@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../shared/utils/chart_calculations.dart';
+import '../../shared/widgets/empty_state_overlay.dart';
 import '../../utils/chart_view_config.dart';
-import '../../utils/empty_state_overlay.dart';
 import '../drawer/sleep_chart_painter.dart';
 import '../models/processed_sleep_data.dart';
-import '../services/sleep_chart_calculations.dart';
 import '../styles/sleep_chart_style.dart';
 import 'sleep_tooltip.dart';
 
@@ -73,9 +73,17 @@ class _SleepChartContentState extends State<SleepChartContent> {
       if (size != _chartSize || newDataHash != _lastDataHash) {
         setState(() {
           _chartSize = size;
-          _chartArea = SleepChartCalculations.calculateChartArea(size);
+          _chartArea = SharedChartCalculations.calculateChartArea(size);
+          // Extract sleep duration values for axis calculation
+          final allValues = <double>[];
+          for (var point in widget.data) {
+            if (!point.isEmpty) {
+              allValues.add(point.totalSleepHours);
+            }
+          }
+
           final (yAxisValues, minValue, maxValue) =
-              SleepChartCalculations.calculateYAxisRange(widget.data, []);
+              SharedChartCalculations.calculateNumericYAxisRange(allValues);
           _yAxisValues = yAxisValues;
           _minValue = minValue;
           _maxValue = maxValue;
@@ -153,11 +161,13 @@ class _SleepChartContentState extends State<SleepChartContent> {
 
     if (!_isPointInChartArea(localPosition)) return;
 
-    final closestPoint = SleepChartCalculations.findDataPoint(
+    final closestIndex = SharedChartCalculations.findClosestDataPointIndex(
       localPosition,
       _chartArea!,
-      widget.data,
+      widget.data.length,
     );
+    final closestPoint =
+        closestIndex != null ? widget.data[closestIndex] : null;
 
     if (closestPoint != null) {
       HapticFeedback.selectionClick();
@@ -178,8 +188,9 @@ class _SleepChartContentState extends State<SleepChartContent> {
 
     if (!_isPointInChartArea(localPosition)) return;
 
-    final dataPoint = SleepChartCalculations.findDataPoint(
-        localPosition, _chartArea!, widget.data);
+    final dataIndex = SharedChartCalculations.findClosestDataPointIndex(
+        localPosition, _chartArea!, widget.data.length);
+    final dataPoint = dataIndex != null ? widget.data[dataIndex] : null;
 
     if (dataPoint != null) {
       HapticFeedback.heavyImpact();
@@ -245,7 +256,7 @@ class _SleepChartContentState extends State<SleepChartContent> {
             ),
           ),
           Center(
-            child: EmptyStateOverlay(
+            child: SharedEmptyStateOverlay(
               message: widget.style.noDataMessage,
               icon: Icons.bedtime,
             ),

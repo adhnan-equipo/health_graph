@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../shared/utils/chart_calculations.dart';
+import '../../shared/widgets/empty_state_overlay.dart';
 import '../../utils/chart_view_config.dart';
-import '../../utils/empty_state_overlay.dart';
 import '../drawer/bmi_chart_painter.dart';
 import '../models/processed_bmi_data.dart';
-import '../services/bmi_chart_calculations.dart';
 import '../styles/bmi_chart_style.dart';
 import 'bmi_tooltip.dart';
 
@@ -74,9 +74,17 @@ class _BMIChartContentState extends State<BMIChartContent> {
       if (size != _chartSize || newDataHash != _lastDataHash) {
         setState(() {
           _chartSize = size;
-          _chartArea = BMIChartCalculations.calculateChartArea(size);
+          _chartArea = SharedChartCalculations.calculateChartArea(size);
+          // Extract BMI values for axis calculation
+          final allValues = <double>[];
+          for (var point in widget.data) {
+            if (!point.isEmpty) {
+              allValues.addAll([point.minBMI, point.maxBMI, point.avgBMI]);
+            }
+          }
+
           final (yAxisValues, minValue, maxValue) =
-              BMIChartCalculations.calculateYAxisRange(widget.data, []);
+              SharedChartCalculations.calculateNumericYAxisRange(allValues);
           _yAxisValues = yAxisValues;
           _minValue = minValue;
           _maxValue = maxValue;
@@ -100,7 +108,7 @@ class _BMIChartContentState extends State<BMIChartContent> {
     final tooltipSize = Size(280, _calculateTooltipHeight(data));
 
     final globalPosition = renderBox.localToGlobal(position);
-    final tooltipPosition = BMIChartCalculations.calculateTooltipPosition(
+    final tooltipPosition = SharedChartCalculations.calculateTooltipPosition(
       globalPosition,
       tooltipSize,
       screenSize,
@@ -147,11 +155,13 @@ class _BMIChartContentState extends State<BMIChartContent> {
     if (!_isPointInChartArea(localPosition)) return;
 
     // Find closest data point
-    final closestPoint = BMIChartCalculations.findDataPoint(
+    final closestIndex = SharedChartCalculations.findClosestDataPointIndex(
       localPosition,
       _chartArea!,
-      widget.data,
+      widget.data.length,
     );
+    final closestPoint =
+        closestIndex != null ? widget.data[closestIndex] : null;
 
     if (closestPoint != null) {
       // Provide haptic feedback
@@ -173,8 +183,9 @@ class _BMIChartContentState extends State<BMIChartContent> {
 
     if (!_isPointInChartArea(localPosition)) return;
 
-    final dataPoint = BMIChartCalculations.findDataPoint(
-        localPosition, _chartArea!, widget.data);
+    final dataIndex = SharedChartCalculations.findClosestDataPointIndex(
+        localPosition, _chartArea!, widget.data.length);
+    final dataPoint = dataIndex != null ? widget.data[dataIndex] : null;
 
     if (dataPoint != null) {
       HapticFeedback.heavyImpact();
@@ -250,7 +261,7 @@ class _BMIChartContentState extends State<BMIChartContent> {
           ),
           // Draw empty state overlay with message
           Center(
-            child: EmptyStateOverlay(
+            child: SharedEmptyStateOverlay(
               message: widget.style.noData,
               icon: Icons.monitor_weight_outlined,
             ),

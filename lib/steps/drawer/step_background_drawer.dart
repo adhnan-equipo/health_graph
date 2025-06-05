@@ -1,8 +1,10 @@
 // lib/steps/drawer/step_background_drawer.dart
-import 'package:flutter/material.dart';
 
-class StepBackgroundDrawer {
-  void drawBackground(Canvas canvas, Rect chartArea) {
-    canvas.drawRect(chartArea, Paint()..color = Colors.transparent);
-  }
-}
+// Re-export the shared background drawer
+export '../../shared/drawers/chart_background_drawer.dart';
+
+// For backwards compatibility, create an alias
+import '../../shared/drawers/chart_background_drawer.dart';
+
+/// Alias for the shared chart background drawer
+typedef StepBackgroundDrawer = ChartBackgroundDrawer;

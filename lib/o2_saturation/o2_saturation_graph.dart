@@ -4,13 +4,13 @@ import 'package:flutter/services.dart';
 
 import '../../models/date_range_type.dart';
 import '../../utils/chart_view_config.dart';
-import '../../utils/empty_state_overlay.dart';
 import '../../utils/tooltip_position.dart';
+import '../shared/utils/chart_calculations.dart';
+import '../shared/widgets/empty_state_overlay.dart';
 import 'models/o2_saturation_data.dart';
 import 'models/processed_o2_saturation_data.dart';
 import 'painters/o2_saturation_chart_painter.dart';
-import 'services/chart_calculations.dart';
-import 'services/data_processor.dart';
+import 'services/o2_saturation_data_processor_universal.dart';
 import 'styles/o2_saturation_chart_style.dart';
 import 'widgets/o2_saturation_tooltip.dart';
 
@@ -55,12 +55,11 @@ class _O2SaturationGraphState extends State<O2SaturationGraph>
   }
 
   void _processData() {
-    _processedData = O2SaturationDataProcessor.processData(
+    _processedData = O2SaturationDataProcessorUniversal.processData(
       widget.data,
       _currentConfig.viewType,
       _currentConfig.startDate,
       _calculateEndDate(_currentConfig.startDate, _currentConfig.viewType),
-      zoomLevel: _currentConfig.zoomLevel,
     );
   }
 
@@ -244,10 +243,22 @@ class _O2SaturationChartContentState extends State<O2SaturationChartContent> {
       if (size != _chartSize || newDataHash != _lastDataHash) {
         setState(() {
           _chartSize = size;
-          _chartArea = O2ChartCalculations.calculateChartArea(size);
-          final (yAxisValues, minValue, maxValue) =
-              O2ChartCalculations.calculateYAxisRange(widget.data);
-          _yAxisValues = yAxisValues;
+          _chartArea = SharedChartCalculations.calculateChartArea(size);
+          // Extract values for axis calculation
+          final allValues = <double>[];
+          for (var point in widget.data) {
+            if (!point.isEmpty) {
+              allValues.addAll([
+                point.minValue.toDouble(),
+                point.maxValue.toDouble(),
+                point.avgValue,
+              ]);
+            }
+          }
+          final (rawYAxisValues, minValue, maxValue) =
+              SharedChartCalculations.calculateIntegerYAxisRange(
+                  allValues.map((v) => v.round()).toList());
+          _yAxisValues = rawYAxisValues;
           _minValue = minValue;
           _maxValue = maxValue;
           _lastDataHash = newDataHash;
@@ -334,8 +345,10 @@ class _O2SaturationChartContentState extends State<O2SaturationChartContent> {
     if (!_isPointInChartArea(localPosition)) return;
 
     // Find closest data point
-    final closestPoint = O2ChartCalculations.findDataPoint(
-        localPosition, _chartArea!, widget.data);
+    final closestIndex = SharedChartCalculations.findClosestDataPointIndex(
+        localPosition, _chartArea!, widget.data.length);
+    final closestPoint =
+        closestIndex != null ? widget.data[closestIndex] : null;
 
     if (closestPoint != null) {
       // Provide haptic feedback
@@ -414,7 +427,7 @@ class _O2SaturationChartContentState extends State<O2SaturationChartContent> {
           ),
           // Draw empty state overlay with message
           Center(
-            child: EmptyStateOverlay(
+            child: SharedEmptyStateOverlay(
               message: widget.style.noDataLabel,
               icon: Icons.monitor_heart_outlined,
             ),

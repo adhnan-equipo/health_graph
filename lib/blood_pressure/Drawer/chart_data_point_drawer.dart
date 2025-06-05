@@ -3,8 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../shared/utils/chart_calculations.dart';
 import '../models/processed_blood_pressure_data.dart';
-import '../services/chart_calculations.dart';
 import '../styles/blood_pressure_chart_style.dart';
 
 class ChartDataPointDrawer {
@@ -46,7 +46,8 @@ class ChartDataPointDrawer {
       final entry = data[i];
       if (entry.isEmpty) continue;
 
-      final x = ChartCalculations.calculateXPosition(i, data.length, chartArea);
+      final x =
+          SharedChartCalculations.calculateXPosition(i, data.length, chartArea);
 
       // Ensure point is within drawable area
       if (x >= chartArea.left && x <= chartArea.right) {
@@ -91,7 +92,8 @@ class ChartDataPointDrawer {
       final entry = data[i];
       if (entry.isEmpty) continue;
 
-      final x = ChartCalculations.calculateXPosition(i, data.length, chartArea);
+      final x =
+          SharedChartCalculations.calculateXPosition(i, data.length, chartArea);
 
       final systolicY = _getYPosition(
         entry.avgSystolic,
@@ -221,26 +223,24 @@ class ChartDataPointDrawer {
       diastolicFillPath.close();
 
       // Draw fills
-      _fillPaint
-        ..shader = ui.Gradient.linear(
-          Offset(0, chartArea.top),
-          Offset(0, chartArea.bottom),
-          [
-            style.systolicColor.withValues(alpha: fillOpacity),
-            style.systolicColor.withValues(alpha: 0),
-          ],
-        );
+      _fillPaint.shader = ui.Gradient.linear(
+        Offset(0, chartArea.top),
+        Offset(0, chartArea.bottom),
+        [
+          style.systolicColor.withValues(alpha: fillOpacity),
+          style.systolicColor.withValues(alpha: 0),
+        ],
+      );
       canvas.drawPath(systolicFillPath, _fillPaint);
 
-      _fillPaint
-        ..shader = ui.Gradient.linear(
-          Offset(0, chartArea.top),
-          Offset(0, chartArea.bottom),
-          [
-            style.diastolicColor.withValues(alpha: fillOpacity),
-            style.diastolicColor.withValues(alpha: 0),
-          ],
-        );
+      _fillPaint.shader = ui.Gradient.linear(
+        Offset(0, chartArea.top),
+        Offset(0, chartArea.bottom),
+        [
+          style.diastolicColor.withValues(alpha: fillOpacity),
+          style.diastolicColor.withValues(alpha: 0),
+        ],
+      );
       canvas.drawPath(diastolicFillPath, _fillPaint);
 
       // Reset shader

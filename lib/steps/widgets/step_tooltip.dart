@@ -34,7 +34,6 @@ class _StepTooltipState extends State<StepTooltip>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-  late Map<String, String> _textMap;
 
   @override
   void initState() {
@@ -130,10 +129,10 @@ class _StepTooltipState extends State<StepTooltip>
               vertical: isLowValue ? 8 : 6,
             ),
             decoration: BoxDecoration(
-              color: _getCategoryColor(displayValue).withOpacity(0.1),
+              color: _getCategoryColor(displayValue).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _getCategoryColor(displayValue).withOpacity(0.3),
+                color: _getCategoryColor(displayValue).withValues(alpha: 0.3),
                 width: isLowValue ? 2 : 1,
               ),
             ),
@@ -166,13 +165,13 @@ class _StepTooltipState extends State<StepTooltip>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  _getCategoryColor(displayValue).withOpacity(0.1),
-                  _getCategoryColor(displayValue).withOpacity(0.2),
+                  _getCategoryColor(displayValue).withValues(alpha: 0.1),
+                  _getCategoryColor(displayValue).withValues(alpha: 0.2),
                 ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: _getCategoryColor(displayValue).withOpacity(0.4),
+                color: _getCategoryColor(displayValue).withValues(alpha: 0.4),
                 width: isLowValue ? 1.5 : 1,
               ),
             ),
@@ -214,10 +213,10 @@ class _StepTooltipState extends State<StepTooltip>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.05),
+        color: Colors.blue.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.blue.withOpacity(0.2),
+          color: Colors.blue.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -245,7 +244,7 @@ class _StepTooltipState extends State<StepTooltip>
           const SizedBox(height: 6),
           LinearProgressIndicator(
             value: progress,
-            backgroundColor: Colors.blue.withOpacity(0.2),
+            backgroundColor: Colors.blue.withValues(alpha: 0.2),
             valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
             minHeight: 6,
           ),
@@ -306,17 +305,17 @@ class _StepTooltipState extends State<StepTooltip>
       padding: EdgeInsets.all(isLowValue ? 16 : 12),
       decoration: BoxDecoration(
         color: isGoalMet
-            ? widget.style.goalAchievedColor.withOpacity(0.1)
+            ? widget.style.goalAchievedColor.withValues(alpha: 0.1)
             : (isLowValue
-                ? Colors.orange.withOpacity(0.08)
-                : Colors.grey.withOpacity(0.05)),
+                ? Colors.orange.withValues(alpha: 0.08)
+                : Colors.grey.withValues(alpha: 0.05)),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isGoalMet
-              ? widget.style.goalAchievedColor.withOpacity(0.3)
+              ? widget.style.goalAchievedColor.withValues(alpha: 0.3)
               : (isLowValue
-                  ? Colors.orange.withOpacity(0.3)
-                  : Colors.grey.withOpacity(0.2)),
+                  ? Colors.orange.withValues(alpha: 0.3)
+                  : Colors.grey.withValues(alpha: 0.2)),
           width: isLowValue ? 1.5 : 1,
         ),
       ),
@@ -339,10 +338,10 @@ class _StepTooltipState extends State<StepTooltip>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isGoalMet
-                      ? widget.style.goalAchievedColor.withOpacity(0.2)
+                      ? widget.style.goalAchievedColor.withValues(alpha: 0.2)
                       : (isLowValue
-                          ? Colors.orange.withOpacity(0.2)
-                          : Colors.grey.withOpacity(0.2)),
+                          ? Colors.orange.withValues(alpha: 0.2)
+                          : Colors.grey.withValues(alpha: 0.2)),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -378,13 +377,18 @@ class _StepTooltipState extends State<StepTooltip>
                   gradient: LinearGradient(
                     colors: isGoalMet
                         ? [
-                            widget.style.goalAchievedColor.withOpacity(0.7),
+                            widget.style.goalAchievedColor
+                                .withValues(alpha: 0.7),
                             widget.style.goalAchievedColor
                           ]
                         : (isLowValue
-                            ? [Colors.orange.withOpacity(0.7), Colors.orange]
+                            ? [
+                                Colors.orange.withValues(alpha: 0.7),
+                                Colors.orange
+                              ]
                             : [
-                                widget.style.goalLineColor.withOpacity(0.7),
+                                widget.style.goalLineColor
+                                    .withValues(alpha: 0.7),
                                 widget.style.goalLineColor
                               ]),
                   ),
