@@ -73,70 +73,32 @@ class HeartRateChartConfig {
     );
   }
 
-  /// Calculate end date based on start date and view type
-  static DateTime calculateEndDate(DateTime startDate, DateRangeType viewType) {
-    switch (viewType) {
-      case DateRangeType.day:
-        return DateTime(
-          startDate.year,
-          startDate.month,
-          startDate.day,
-          23,
-          59,
-          59,
-        );
-      case DateRangeType.week:
-        // End of week (start date + 6 days)
-        return startDate.add(const Duration(days: 6));
-      case DateRangeType.month:
-        // Last day of month
-        return DateTime(
-          startDate.year,
-          startDate.month + 1,
-          0,
-          23,
-          59,
-          59,
-        );
-      case DateRangeType.year:
-        // End of year
-        return DateTime(
-          startDate.year,
-          12,
-          31,
-          23,
-          59,
-          59,
-        );
-    }
-  }
-
-  /// Get a standard config for the given view type
+  /// Get a standard config for the given view type using SAME logic as other charts
   static HeartRateChartConfig getDefaultConfig(DateRangeType viewType) {
     final now = DateTime.now();
     late final DateTime startDate;
+    late final DateTime endDate;
 
+    // SAME logic as BaseChartController used by other charts
     switch (viewType) {
       case DateRangeType.day:
-        // Start of today
         startDate = DateTime(now.year, now.month, now.day);
+        endDate = startDate.add(const Duration(days: 1));
         break;
       case DateRangeType.week:
-        // Start of current week (adjusted to Monday)
-        final weekday = now.weekday;
-        startDate = DateTime(now.year, now.month, now.day - weekday + 1);
+        // Use the SAME logic as other charts - no custom week calculation
+        startDate = DateTime(now.year, now.month, now.day);
+        endDate = startDate.add(const Duration(days: 6));
         break;
       case DateRangeType.month:
-        // Start of current month
         startDate = DateTime(now.year, now.month, 1);
+        endDate = DateTime(now.year, now.month + 1, 0);
         break;
       case DateRangeType.year:
-        // Start of current year
         startDate = DateTime(now.year, 1, 1);
+        endDate = DateTime(now.year + 1, 1, 0);
         break;
     }
-
-    final endDate = calculateEndDate(startDate, viewType);
 
     return HeartRateChartConfig(
       viewType: viewType,
@@ -145,34 +107,34 @@ class HeartRateChartConfig {
     );
   }
 
-  /// Get a config for a specific period
+  /// Get a config for a specific period using SAME logic as other charts
   static HeartRateChartConfig forPeriod({
     required DateRangeType viewType,
     required DateTime date,
   }) {
     late final DateTime startDate;
+    late final DateTime endDate;
 
+    // SAME logic as BaseChartController used by other charts
     switch (viewType) {
       case DateRangeType.day:
-        // Start of specified day
         startDate = DateTime(date.year, date.month, date.day);
+        endDate = startDate.add(const Duration(days: 1));
         break;
       case DateRangeType.week:
-        // Start of week that contains the specified date
-        final weekday = date.weekday;
-        startDate = DateTime(date.year, date.month, date.day - weekday + 1);
+        // Use the SAME logic as other charts - no custom week calculation
+        startDate = DateTime(date.year, date.month, date.day);
+        endDate = startDate.add(const Duration(days: 6));
         break;
       case DateRangeType.month:
-        // Start of month for specified date
         startDate = DateTime(date.year, date.month, 1);
+        endDate = DateTime(date.year, date.month + 1, 0);
         break;
       case DateRangeType.year:
-        // Start of year for specified date
         startDate = DateTime(date.year, 1, 1);
+        endDate = DateTime(date.year + 1, 1, 0);
         break;
     }
-
-    final endDate = calculateEndDate(startDate, viewType);
 
     return HeartRateChartConfig(
       viewType: viewType,

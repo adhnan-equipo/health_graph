@@ -53,11 +53,41 @@ class HeartRateChartController extends ChangeNotifier {
         final sortedData = List<HeartRateData>.from(_data)
           ..sort((a, b) => a.date.compareTo(b.date));
 
+        // SAME date range calculation logic as other charts (BaseChartController)
+        final DateTime startDate;
+        final DateTime endDate;
+
+        switch (_config.viewType) {
+          case DateRangeType.day:
+            startDate = DateTime(_config.startDate.year,
+                _config.startDate.month, _config.startDate.day);
+            endDate = startDate.add(const Duration(days: 1));
+            break;
+
+          case DateRangeType.week:
+            // SAME logic as other charts - just use startDate and add 6 days
+            startDate = _config.startDate;
+            endDate = startDate.add(const Duration(days: 6));
+            break;
+
+          case DateRangeType.month:
+            startDate =
+                DateTime(_config.startDate.year, _config.startDate.month, 1);
+            endDate = DateTime(
+                _config.startDate.year, _config.startDate.month + 1, 0);
+            break;
+
+          case DateRangeType.year:
+            startDate = DateTime(_config.startDate.year, 1, 1);
+            endDate = DateTime(_config.startDate.year + 1, 1, 0);
+            break;
+        }
+
         _processedData = HeartRateDataProcessor.processData(
           sortedData,
           _config.viewType,
-          _config.startDate,
-          _config.endDate,
+          startDate,
+          endDate,
           zoomLevel: _config.zoomLevel,
         );
       });
@@ -133,7 +163,24 @@ class HeartRateChartController extends ChangeNotifier {
   }
 
   void setDateRange(DateRangeType viewType, DateTime startDate) {
-    final endDate = HeartRateChartConfig.calculateEndDate(startDate, viewType);
+    // Calculate end date using SAME logic as other charts
+    late final DateTime endDate;
+
+    switch (viewType) {
+      case DateRangeType.day:
+        endDate = startDate.add(const Duration(days: 1));
+        break;
+      case DateRangeType.week:
+        endDate = startDate.add(const Duration(days: 6));
+        break;
+      case DateRangeType.month:
+        endDate = DateTime(startDate.year, startDate.month + 1, 0);
+        break;
+      case DateRangeType.year:
+        endDate = DateTime(startDate.year + 1, 1, 0);
+        break;
+    }
+
     updateConfig(_config.copyWith(
       viewType: viewType,
       startDate: startDate,
